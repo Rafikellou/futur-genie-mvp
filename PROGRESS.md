@@ -424,10 +424,15 @@ faciles" pour un CE2 réel) :
   en dessous du niveau demandé". Redéployé
   (`npx supabase functions deploy generate-quiz`).
 
-Non vérifié :
+Vérifié sur appareil (résultat négatif) : avec le nouveau réglage de la
+règle 6/10, une leçon CE2 réelle produit toujours des questions perçues
+comme plutôt CP/CE1. Le simple resserrement du texte du prompt n'a donc
+pas suffi à corriger la calibration de difficulté par niveau.
 
-- Le nouveau réglage de la règle 6/10 sur un cas réel : à confirmer par
-  l'utilisateur au prochain test (idéalement en comparant un même type de
-  leçon avant/après, ou plusieurs niveaux sur des leçons similaires),
-  conformément à CLAUDE.md §26 — un changement de prompt ne doit pas être
-  considéré acquis sans reconfirmation sur des exemples réels.
+Décision (utilisateur, à cette date) : ne pas continuer à itérer sur la
+seule formulation du prompt. Le sujet est reporté à un jalon ultérieur, où
+la calibration de difficulté sera traitée comme un vrai brief pédagogique
+par niveau **et** par matière (pas seulement une phrase générique dans le
+prompt système), à concevoir avant d'être incorporé — forme exacte encore
+à définir (contenu enrichi du prompt, few-shot, grille de difficulté
+structurée, etc.).

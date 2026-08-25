@@ -18,9 +18,9 @@
 | # | Nom | Statut |
 |---|---|---|
 | 1 | Fondations (Expo + TS + Router + client Supabase) | ✅ Terminé et vérifié sur iPhone (Expo Go) |
-| 2 | Authentification enseignant | ✅ Terminé — à vérifier sur appareil (voir note ci-dessous) |
-| 3 | Création d'exercice (sans IA) | 🔜 Prochain |
-| 4 | Photo de leçon | À venir |
+| 2 | Authentification enseignant | ✅ Terminé et vérifié sur appareil |
+| 3 | Création d'exercice (sans IA) | ✅ Terminé — vérifié sur appareil |
+| 4 | Photo de leçon | 🔜 Prochain |
 | 5 | Génération IA | À venir |
 | 6 | Revue et édition | À venir |
 | 7 | Publication et URL publique | À venir |
@@ -115,9 +115,54 @@ Vérifié :
 - `npx expo export --platform web` : les 5 routes s'exportent sans erreur.
 - Migration appliquée avec succès sur le projet Supabase distant.
 
-Non vérifié (à faire manuellement) :
+Vérifié manuellement sur appareil : créer un compte, se déconnecter, se
+reconnecter, modifier le nom affiché.
 
-- Parcours complet sur appareil réel (iOS/Android via Expo Go) : créer un
-  compte, se déconnecter, se reconnecter, modifier le nom affiché.
+Non vérifié :
+
 - Comportement réel de la confirmation e-mail (dépend du réglage "Confirm
   email" du projet Supabase, non modifié ici).
+
+## Milestone 3 — Création d'exercice, sans IA (détail)
+
+Implémenté :
+
+- Domaine centralisé (`shared/domain/grade.ts`, `subject.ts`,
+  `exercise.ts`) : niveaux (CP→CM2), matières (§18), types d'exercice
+  (QCM / Vrai-Faux / Réponse courte / Mixte) et nombres de questions
+  proposés (5 / 10 / 15, défaut 10). Un seul endroit à modifier si ces
+  listes évoluent.
+- Écran `src/app/(app)/create.tsx` : formulaire à un seul écran (pas
+  d'assistant multi-étapes) avec quatre rangées de choix (composant
+  générique réutilisable `OptionChips`). Bouton "Continuer" désactivé tant
+  que les quatre choix ne sont pas faits. État local uniquement (pas de
+  contexte global, pas de brouillon en base — prématuré avant la
+  génération IA du Milestone 5).
+- Écran `src/app/(app)/create-photo.tsx` : écran temporaire qui affiche le
+  récapitulatif des choix (reçus via les paramètres de route) et annonce
+  que la photo arrive au prochain jalon. Il garde le parcours navigable de
+  bout en bout sans construire la caméra en avance.
+- Accueil (`index.tsx`) : le texte de remplacement est remplacé par un
+  bouton principal "Créer un devoir".
+
+Décision notable :
+
+- Fichiers de routes à plat (`create.tsx`, `create-photo.tsx`) plutôt
+  qu'un dossier `create/` avec `index.tsx` + `photo.tsx` : la génération
+  des routes typées d'Expo Router perd l'alias `/create` pour un
+  `create/index.tsx` ayant une route sœur dans le même dossier (bug/limite
+  connue de cette version d'Expo Router). Le plat correspond aussi à la
+  convention déjà utilisée par les autres écrans du projet.
+- Aucun changement Supabase/base de données dans ce jalon : la
+  persistance d'un brouillon n'a de sens qu'à partir du Milestone 5,
+  quand l'IA produit du contenu à sauvegarder.
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 8 routes (dont `/create` et
+  `/create-photo`) s'exportent sans erreur.
+- Parcours manuel sur appareil : ouvrir "Créer un devoir", choisir les
+  quatre paramètres, "Continuer" désactivé tant qu'un choix manque, écran
+  suivant affichant le bon récapitulatif.

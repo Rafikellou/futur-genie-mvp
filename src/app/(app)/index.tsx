@@ -18,9 +18,11 @@ export default function HomeScreen() {
         </Link>
       </View>
 
-      <Text style={styles.subtitle}>
-        Vous êtes connecté·e. La création de devoir arrive au prochain jalon.
-      </Text>
+      <Link href="/create" asChild>
+        <Pressable style={styles.createButton} accessibilityRole="button">
+          <Text style={styles.createButtonText}>Créer un devoir</Text>
+        </Pressable>
+      </Link>
     </View>
   );
 }
@@ -47,8 +49,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  subtitle: {
+  createButton: {
+    backgroundColor: '#208AEF',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  createButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    color: '#555555',
+    fontWeight: '600',
   },
 });

@@ -1,0 +1,160 @@
+// Calls the multimodal LLM and returns its validated structured output.
+// This is the concrete implementation behind the conceptual
+// `generateQuizFromLesson()` interface (CLAUDE.md §7) — a plain function,
+// not a provider abstraction layer, since only one provider exists today.
+import type { Grade } from '../../../shared/domain/grade.ts';
+import type { Subject } from '../../../shared/domain/subject.ts';
+import type { QuizType } from '../../../shared/domain/exercise.ts';
+
+import { GenerationError } from './errors.ts';
+import { SYSTEM_PROMPT, buildTaskPrompt } from './prompt.ts';
+import { AiQuizResponseSchema, type AiQuizResponse } from './aiResponse.ts';
+
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const PRIMARY_MODEL = 'gpt-4o-mini';
+const FALLBACK_MODEL = 'gpt-4o';
+// Generous enough for a vision request; leaves margin under the platform's
+// function execution limit so a slow model call surfaces as our own
+// model_timeout rather than an opaque platform-level failure.
+const REQUEST_TIMEOUT_MS = 45_000;
+
+// Mirrors WireQuestionSchema in aiResponse.ts — keep both in sync.
+const RESPONSE_JSON_SCHEMA = {
+  name: 'quiz_from_lesson',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      readable: { type: 'boolean' },
+      sufficientContent: { type: 'boolean' },
+      title: { type: 'string' },
+      instructions: { type: 'string' },
+      warnings: { type: 'array', items: { type: 'string' } },
+      questions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            type: { type: 'string', enum: ['multiple_choice', 'true_false', 'short_answer'] },
+            question: { type: 'string' },
+            explanation: { type: 'string' },
+            sourceEvidence: { type: 'string' },
+            choices: { type: ['array', 'null'], items: { type: 'string' } },
+            correctAnswer: { type: 'string' },
+          },
+          required: [
+            'type',
+            'question',
+            'explanation',
+            'sourceEvidence',
+            'choices',
+            'correctAnswer',
+          ],
+        },
+      },
+    },
+    required: ['readable', 'sufficientContent', 'title', 'instructions', 'warnings', 'questions'],
+  },
+};
+
+export type GenerateParams = {
+  imageBase64: string;
+  mimeType: string;
+  grade: Grade;
+  subject: Subject;
+  quizType: QuizType;
+  questionCount: number;
+  teacherInstruction?: string;
+};
+
+async function callModel(model: string, params: GenerateParams, apiKey: string): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(OPENAI_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: buildTaskPrompt(params) },
+              {
+                type: 'image_url',
+                image_url: { url: `data:${params.mimeType};base64,${params.imageBase64}` },
+              },
+            ],
+          },
+        ],
+        response_format: { type: 'json_schema', json_schema: RESPONSE_JSON_SCHEMA },
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new GenerationError('model_timeout');
+    }
+    throw new GenerationError('model_unavailable', String(err));
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    // Never forward the provider's raw status/body to the client
+    // (CLAUDE.md §24) — log just enough to diagnose (CLAUDE.md §49).
+    console.error(`generate-quiz: OpenAI responded ${response.status} for model ${model}`);
+    throw new GenerationError('model_unavailable');
+  }
+
+  const body = await response.json();
+  const content = body?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string') {
+    throw new GenerationError('invalid_ai_output', 'missing message content');
+  }
+  return content;
+}
+
+function parseAiResponse(content: string): AiQuizResponse {
+  let json: unknown;
+  try {
+    json = JSON.parse(content);
+  } catch {
+    throw new GenerationError('invalid_ai_output', 'response was not valid JSON');
+  }
+
+  const result = AiQuizResponseSchema.safeParse(json);
+  if (!result.success) {
+    throw new GenerationError('invalid_ai_output', result.error.message);
+  }
+  return result.data;
+}
+
+// One retry on a fallback model if the primary model's output doesn't
+// parse/validate — cheap insurance against an occasional malformed
+// response, not a general retry-on-any-error loop (CLAUDE.md §55: retries
+// are a real cost, so this only fires for the one recoverable case).
+export async function generateQuizFromLesson(
+  params: GenerateParams,
+  apiKey: string
+): Promise<AiQuizResponse> {
+  try {
+    const content = await callModel(PRIMARY_MODEL, params, apiKey);
+    return parseAiResponse(content);
+  } catch (err) {
+    if (err instanceof GenerationError && err.code === 'invalid_ai_output') {
+      const content = await callModel(FALLBACK_MODEL, params, apiKey);
+      return parseAiResponse(content);
+    }
+    throw err;
+  }
+}

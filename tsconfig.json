@@ -2,6 +2,11 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "noEmit": true,
+    // shared/domain/quiz.ts uses explicit ".ts" specifiers on its internal
+    // imports so the same file resolves under both Metro (this project) and
+    // Deno (Edge Functions, which require extensions on relative imports).
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": [
         "./src/*"
@@ -19,5 +24,11 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  // Edge Functions run on Deno (global `Deno` APIs, `npm:`/`jsr:` import
+  // specifiers) and are type-checked separately by the Deno CLI — including
+  // them here would make this project's tsc fail on syntax it doesn't understand.
+  "exclude": [
+    "supabase/functions/**"
   ]
 }

@@ -21,3 +21,18 @@ After that, migrations can be applied with:
 ```bash
 npx supabase db push
 ```
+
+## AI generation secret (Milestone 5)
+
+The `generate-quiz` function needs an OpenAI API key as a Supabase secret —
+run this yourself (never paste a real key into a chat with Claude):
+
+```bash
+npx supabase secrets set OPENAI_API_KEY=sk-...
+```
+
+Deploy the function itself with:
+
+```bash
+npx supabase functions deploy generate-quiz
+```

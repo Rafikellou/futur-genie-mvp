@@ -21,7 +21,7 @@
 | 2 | Authentification enseignant | ✅ Terminé et vérifié sur appareil |
 | 3 | Création d'exercice (sans IA) | ✅ Terminé — vérifié sur appareil |
 | 4 | Photo de leçon | ✅ Terminé — vérifié sur appareil (iPhone) |
-| 5 | Génération IA | 🔜 Prochain |
+| 5 | Génération IA | ✅ Terminé — vérifié sur appareil (iPhone) ; prompt affiné après retour utilisateur |
 | 6 | Revue et édition | À venir |
 | 7 | Publication et URL publique | À venir |
 | 8 | Expérience élève | À venir |
@@ -68,8 +68,8 @@ conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
   `supabase login` + `supabase link` — voir `supabase/README.md`. Ces
   commandes sont à relancer par l'utilisateur sur toute nouvelle machine
   (jamais de token/mot de passe collé dans le chat).
-- Clé API OpenAI : pas encore configurée (nécessaire à partir du
-  Milestone 5, en secret Supabase, jamais dans le repo).
+- Clé API OpenAI : configurée en secret Supabase (`OPENAI_API_KEY`, jamais
+  dans le repo) ; la fonction `generate-quiz` est déployée.
 - Dépôt GitHub : https://github.com/Rafikellou/futur-genie-mvp (remote
   `origin`, branche `main`).
 
@@ -231,3 +231,111 @@ Non vérifié :
 - Android physique.
 - Refus de permission puis ouverture des réglages (chemin testable
   seulement après un refus explicite persistant).
+
+## Milestone 5 — Génération IA (détail)
+
+Implémenté :
+
+- `shared/domain/quiz.ts` : schéma Zod du quiz généré — union discriminée
+  `Question` (QCM / Vrai-Faux / Réponse courte), `QuizData` (titre,
+  niveau, matière, type, instructions, questions, avertissements).
+  `sourceEvidence` est portée par chaque question mais reste une donnée
+  interne : aucun écran ne l'affiche.
+- `shared/domain/generationErrors.ts` : codes d'erreur applicatifs stables
+  (`unreadable_image`, `insufficient_content`, `model_timeout`,
+  `model_unavailable`, `invalid_ai_output`, `unauthorized`,
+  `invalid_request`, `unknown_error`) + messages français associés, pour
+  que le backend et l'app ne divergent jamais sur ce vocabulaire.
+- Edge Function `supabase/functions/generate-quiz/` : authentification JWT
+  obligatoire (dérivée de la session, jamais d'identifiant fourni par le
+  client) ; prompt séparé en règles pédagogiques invariantes (système) et
+  paramètres du professeur (tâche, avec l'instruction optionnelle
+  explicitement bornée pour ne jamais outrepasser les règles système) ;
+  appel OpenAI `gpt-4o-mini` avec sortie structurée stricte (JSON Schema),
+  repli automatique sur `gpt-4o` si la sortie ne se valide pas ; le modèle
+  déclare lui-même si la photo est lisible/suffisante plutôt que le code
+  ne le devine ; validation Zod complète avant renvoi ; aucune image ni
+  quiz persisté (pas de table en base à ce jalon — la persistance arrive
+  avec la publication au Milestone 7).
+- `src/features/exercise-creation/generateQuiz.ts` : lit la photo
+  compressée en base64 (`expo-file-system`), appelle la fonction, renvoie
+  un résultat typé (`{ ok: true, quiz }` ou `{ ok: false, code }`) sans
+  jamais laisser remonter d'exception à l'écran.
+- `src/app/(app)/create-photo.tsx` : le bouton "Continuer" déclenche la
+  génération réelle ; état de chargement avec libellés progressifs
+  (« Lecture de la leçon… », etc.) ; soumissions multiples bloquées
+  pendant la génération ; en cas d'erreur, message français avec action
+  "Reprendre la photo" quand c'est pertinent (image illisible/contenu
+  insuffisant), sinon "Réessayer".
+- `src/app/(app)/quiz-draft.tsx` (nouveau) : aperçu du quiz généré en
+  lecture seule (titre, récapitulatif, instructions, avertissements,
+  questions avec la bonne réponse visible pour le professeur). Pas
+  d'édition ni de publication — un message indique que la suite arrive au
+  prochain jalon, comme pour `create-photo.tsx` au Milestone 4.
+
+Décisions notables :
+
+- `tsconfig.json` : `allowImportingTsExtensions` activé et
+  `supabase/functions/**` exclu du typage de l'app. Nécessaire pour que
+  `shared/domain/quiz.ts` soit importé tel quel à la fois par Metro (app)
+  et par Deno (Edge Function, qui exige l'extension `.ts` sur les imports
+  relatifs) — évite de dupliquer le schéma entre les deux côtés
+  (CLAUDE.md §46), au prix d'imports internes à `shared/domain/` écrits
+  avec leur extension explicite.
+- Le format d'échange avec le modèle représente la réponse d'une question
+  Vrai/Faux comme la chaîne `vrai`/`faux` plutôt qu'un booléen JSON :
+  simplifie le schéma de sortie structuré (chaque champ garde un type
+  unique), converti en `boolean` côté serveur avant validation finale.
+- Une réponse du modèle qui se déclare lisible/suffisante mais ne contient
+  aucune question est traitée comme `invalid_ai_output` plutôt que
+  renvoyée telle quelle : mieux vaut un échec explicite qu'un devoir vide.
+- Dépendances ajoutées : `zod` (app + Edge Function via un import map
+  Deno dédié), `expo-file-system` (lecture base64 de la photo côté app).
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 16 routes (dont `/quiz-draft`)
+  s'exportent sans erreur.
+- Relecture de sécurité : JWT dérivé de la session (jamais d'identifiant
+  client), clé OpenAI jamais exposée côté client, `sourceEvidence` jamais
+  rendue par l'UI, validation d'entrée (taille image, énumérations
+  niveau/matière/type, nombre de questions limité aux presets), aucune
+  fuite de détail technique dans les réponses d'erreur (seul un code
+  stable est renvoyé).
+- Secret `OPENAI_API_KEY` configuré et fonction déployée
+  (`npx supabase functions deploy generate-quiz`). Vérifié sans clé
+  enseignant valide : 401 côté gateway sans session, 401
+  `{"error":{"code":"unauthorized"}}` avec un jeton non-enseignant — la
+  fonction est bien joignable et sa vérification d'auth fonctionne.
+- **Parcours complet sur appareil (iPhone) avec une vraie photo de
+  leçon** : génération réelle via OpenAI, questions affichées sur l'écran
+  d'aperçu. Confirmé par l'utilisateur.
+
+Bug pédagogique corrigé au passage (repéré par l'utilisateur en test réel) :
+
+- Sur une leçon de conjugaison, l'IA posait une question de pur rappel de
+  l'exemple illustratif ("Quel est l'exemple donné avec 'tu' ?") au lieu
+  de tester la compréhension de la règle générale qu'il illustrait.
+  `prompt.ts` (`SYSTEM_PROMPT`) distingue maintenant explicitement : une
+  leçon qui énonce une règle/méthode (conjugaison, orthographe, opération)
+  doit être testée par application de la règle à un cas différent, pas
+  par rappel mot pour mot de l'exemple donné — `sourceEvidence` doit alors
+  pointer vers l'énoncé de la règle, pas vers l'exemple. Le rappel factuel
+  reste inchangé pour les leçons purement factuelles (dates, sciences,
+  vocabulaire), et la règle anti-hallucination (jamais inventer une règle
+  non présente dans la leçon) reste intacte. Redéployé ; non re-testé sur
+  appareil après ce changement (à confirmer par l'utilisateur au prochain
+  test).
+
+Non vérifié :
+
+- Tests Deno de l'Edge Function
+  (`supabase/functions/generate-quiz/generate-quiz.test.ts`) : écrits
+  mais non exécutés, aucun runtime Deno disponible dans cet environnement
+  de développement.
+- Évaluation pédagogique systématique (jeu d'essai du skill
+  `pedagogical-ai-engineer` — CP lecture, CE1 grammaire, CE2 maths, CM1
+  histoire, CM2 sciences, page dense, page floue, etc.) : seul un cas réel
+  (conjugaison CE2/CM1) a été testé jusqu'ici.

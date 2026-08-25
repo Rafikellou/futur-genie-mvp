@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -14,11 +14,43 @@ import {
 } from 'react-native';
 
 import { compressLessonImage, LessonImage } from '@/features/exercise-creation/lessonImage';
-import { EXERCISE_TYPES } from '@shared/domain/exercise';
-import { GRADES } from '@shared/domain/grade';
-import { SUBJECTS } from '@shared/domain/subject';
+import { generateQuizFromLesson } from '@/features/exercise-creation/generateQuiz';
+import { EXERCISE_TYPES, QuizType } from '@shared/domain/exercise';
+import { GRADES, Grade } from '@shared/domain/grade';
+import { SUBJECTS, Subject } from '@shared/domain/subject';
+import {
+  GENERATION_ERROR_MESSAGES,
+  RETAKE_PHOTO_ERRORS,
+} from '@shared/domain/generationErrors';
 
 type PhotoSource = 'camera' | 'library';
+
+// The backend returns a single final response (no live progress), so this
+// just cycles through the CLAUDE.md-suggested copy on a timer rather than
+// fabricating a real percentage (CLAUDE.md §38).
+const GENERATION_STEP_LABELS = [
+  'Lecture de la leçon…',
+  'Création des questions…',
+  'Préparation du devoir…',
+];
+const GENERATION_STEP_DURATION_MS = 3000;
+
+function useGenerationStepLabel(active: boolean): string {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setStepIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setStepIndex((i) => Math.min(i + 1, GENERATION_STEP_LABELS.length - 1));
+    }, GENERATION_STEP_DURATION_MS);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  return GENERATION_STEP_LABELS[stepIndex];
+}
 
 export default function CreatePhotoScreen() {
   const { grade, subject, quizType, questionCount } = useLocalSearchParams<{
@@ -34,6 +66,8 @@ export default function CreatePhotoScreen() {
 
   const [photo, setPhoto] = useState<LessonImage | null>(null);
   const [busySource, setBusySource] = useState<PhotoSource | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const generationLabel = useGenerationStepLabel(isGenerating);
 
   async function handlePhotoSource(source: PhotoSource) {
     const permission =
@@ -78,16 +112,44 @@ export default function CreatePhotoScreen() {
     }
   }
 
-  function handleContinue() {
-    // AI generation lands in Milestone 5. Kept as an explicit acknowledgment
-    // rather than a dead/disabled button so the flow stays understandable.
-    Alert.alert(
-      'Photo enregistrée',
-      'La création automatique du devoir arrive au prochain jalon.'
-    );
+  async function handleContinue() {
+    if (!photo || isGenerating) return;
+
+    setIsGenerating(true);
+    try {
+      const result = await generateQuizFromLesson({
+        photo,
+        grade: grade as Grade,
+        subject: subject as Subject,
+        quizType: quizType as QuizType,
+        questionCount: Number(questionCount),
+      });
+
+      if (!result.ok) {
+        const canRetakePhoto = RETAKE_PHOTO_ERRORS.has(result.code);
+        Alert.alert(
+          'Devoir non créé',
+          GENERATION_ERROR_MESSAGES[result.code],
+          canRetakePhoto
+            ? [
+                { text: 'Réessayer', style: 'cancel' },
+                { text: 'Reprendre la photo', onPress: () => setPhoto(null) },
+              ]
+            : [{ text: 'Réessayer' }]
+        );
+        return;
+      }
+
+      router.push({
+        pathname: '/quiz-draft',
+        params: { quiz: JSON.stringify(result.quiz) },
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
-  const isBusy = busySource !== null;
+  const isBusy = busySource !== null || isGenerating;
 
   return (
     <ScrollView
@@ -126,8 +188,21 @@ export default function CreatePhotoScreen() {
               disabled={isBusy}
             />
           </View>
-          <Pressable style={styles.button} onPress={handleContinue} accessibilityRole="button">
-            <Text style={styles.buttonText}>Continuer</Text>
+          <Pressable
+            style={[styles.button, isGenerating && styles.buttonDisabled]}
+            onPress={handleContinue}
+            disabled={isGenerating}
+            accessibilityRole="button"
+            accessibilityLabel={isGenerating ? generationLabel : 'Continuer'}
+          >
+            {isGenerating ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={styles.buttonText}>{generationLabel}</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonText}>Continuer</Text>
+            )}
           </Pressable>
         </>
       ) : (
@@ -263,6 +338,11 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#FFFFFF',

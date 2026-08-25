@@ -20,8 +20,8 @@
 | 1 | Fondations (Expo + TS + Router + client Supabase) | ✅ Terminé et vérifié sur iPhone (Expo Go) |
 | 2 | Authentification enseignant | ✅ Terminé et vérifié sur appareil |
 | 3 | Création d'exercice (sans IA) | ✅ Terminé — vérifié sur appareil |
-| 4 | Photo de leçon | 🔜 Prochain |
-| 5 | Génération IA | À venir |
+| 4 | Photo de leçon | ✅ Terminé — vérifié sur appareil (iPhone) |
+| 5 | Génération IA | 🔜 Prochain |
 | 6 | Revue et édition | À venir |
 | 7 | Publication et URL publique | À venir |
 | 8 | Expérience élève | À venir |
@@ -166,3 +166,68 @@ Vérifié :
 - Parcours manuel sur appareil : ouvrir "Créer un devoir", choisir les
   quatre paramètres, "Continuer" désactivé tant qu'un choix manque, écran
   suivant affichant le bon récapitulatif.
+
+## Milestone 4 — Photo de leçon (détail)
+
+Implémenté :
+
+- `src/app/(app)/create-photo.tsx` remplace son placeholder du Milestone 3
+  par l'écran réel : "Prendre une photo" (caméra) ou "Choisir dans la
+  bibliothèque" (`expo-image-picker`), aperçu de la photo une fois
+  sélectionnée, boutons "Reprendre" / "Choisir une autre photo" pour la
+  remplacer avant de continuer. Le récapitulatif niveau/matière/type/nombre
+  de questions reste affiché.
+- Permissions caméra et bibliothèque demandées séparément au moment de
+  l'action (pas au chargement de l'écran). En cas de refus, message en
+  français sans jargon : proposition de réessayer si le système peut encore
+  redemander, sinon bouton "Ouvrir les réglages" (`Linking.openSettings()`)
+  car iOS/Android ne réaffichent pas leur propre demande après un refus.
+- `src/features/exercise-creation/lessonImage.ts` : compression côté
+  client via `expo-image-manipulator` (nouvelle API contextuelle, pas
+  `manipulateAsync` qui est dépréciée). Redimensionnement seulement si la
+  photo dépasse 1600 px sur son plus grand côté, ré-encodage JPEG qualité
+  0,7. Réduit une photo de téléphone typique (3000-4000 px) à quelques
+  centaines de Ko tout en gardant le texte imprimé lisible, sans jamais
+  agrandir une image déjà petite.
+- Dépendances ajoutées via `npx expo install` (versions choisies par Expo
+  pour SDK 54) : `expo-image-picker`, `expo-image-manipulator`. Plugin
+  `expo-image-picker` déclaré dans `app.json` avec les textes de permission
+  iOS/Android en français ; permission microphone explicitement désactivée
+  (jamais de vidéo/live photo dans ce parcours).
+
+Décision notable :
+
+- Le bouton "Continuer" (une fois une photo prête) affiche pour l'instant
+  un message "La création automatique du devoir arrive au prochain jalon"
+  plutôt que de naviguer vers un écran de génération factice : la
+  génération IA appartient au Milestone 5 et ne doit pas être anticipée
+  (CLAUDE.md §60). La photo compressée reste en état local du composant ;
+  aucun upload, appel IA ni brouillon en base — conformément au périmètre
+  du jalon.
+- Aucune image de leçon n'est stockée de façon permanente à cette étape
+  (CLAUDE.md §31) : la photo compressée vit uniquement en mémoire/cache
+  temporaire de l'appareil tant que l'écran est ouvert.
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 14 routes (dont `/create-photo`)
+  s'exportent sans erreur ; `expo-image-picker` et `expo-image-manipulator`
+  ont un fallback web (fichier + canvas) et ne font pas planter le rendu
+  statique.
+
+Vérifié manuellement sur appareil (iPhone, Expo Go) : prendre une photo,
+la remplacer par une nouvelle photo prise, choisir une photo depuis la
+bibliothèque à la place.
+
+Bug corrigé au passage : erreur Metro "Unable to resolve module
+./validators" au premier lancement après l'ajout d'`expo-image-manipulator`
+— cache du bundler périmé (le paquet venait d'être installé), résolu par
+`npx expo start -c`. Pas un problème de code.
+
+Non vérifié :
+
+- Android physique.
+- Refus de permission puis ouverture des réglages (chemin testable
+  seulement après un refus explicite persistant).

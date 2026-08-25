@@ -32,6 +32,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Autorisez l'accès à l'appareil photo pour photographier une leçon.",
+          "photosPermission": "Autorisez l'accès à vos photos pour choisir une photo de la leçon.",
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

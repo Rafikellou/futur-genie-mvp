@@ -18,8 +18,8 @@
 | # | Nom | Statut |
 |---|---|---|
 | 1 | Fondations (Expo + TS + Router + client Supabase) | ✅ Terminé et vérifié sur iPhone (Expo Go) |
-| 2 | Authentification enseignant | 🔜 Prochain |
-| 3 | Création d'exercice (sans IA) | À venir |
+| 2 | Authentification enseignant | ✅ Terminé — à vérifier sur appareil (voir note ci-dessous) |
+| 3 | Création d'exercice (sans IA) | 🔜 Prochain |
 | 4 | Photo de leçon | À venir |
 | 5 | Génération IA | À venir |
 | 6 | Revue et édition | À venir |
@@ -73,9 +73,51 @@ conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
 - Dépôt GitHub : https://github.com/Rafikellou/futur-genie-mvp (remote
   `origin`, branche `main`).
 
-## Prérequis avant de commencer le Milestone 2
+## Milestone 2 — Authentification enseignant (détail)
 
-- [ ] Utilisateur : exécuter une fois `npx supabase login` puis
-  `npx supabase link --project-ref otrtxtkghhnxmmfqgvdr` dans un terminal
-  sur cette machine, pour que les migrations SQL puissent être appliquées
-  via `npx supabase db push`.
+Implémenté :
+
+- Table `profiles` (migration `20260825193812_create_profiles.sql`), créée
+  automatiquement par un trigger sur `auth.users` — l'app n'orchestre jamais
+  la création du profil elle-même. RLS : un enseignant ne peut lire/modifier
+  que sa propre ligne. Migration poussée sur le projet distant
+  (`npx supabase db push`).
+- `AuthProvider` (`src/features/auth/AuthProvider.tsx`) : session Supabase +
+  profil, exposés via `useAuth()`. Erreurs Supabase traduites en français
+  (`authErrors.ts`), jamais affichées brutes.
+- Routes protégées via `Stack.Protected` (mécanisme officiel d'Expo Router,
+  disponible dans la version installée) dans `src/app/_layout.tsx` : groupe
+  `(auth)` (`sign-in`, `sign-up`) si pas de session, groupe `(app)` (`index`,
+  `profile`) si session active. Pas de logique de redirection manuelle à
+  maintenir.
+- Écran de profil minimal : nom affiché modifiable, e-mail en lecture seule,
+  déconnexion.
+
+Décision notable :
+
+- L'inscription gère les deux cas Supabase (confirmation e-mail activée ou
+  non) : si aucune session n'est retournée après `signUp`, l'écran affiche
+  "Vérifiez votre boîte mail" au lieu de supposer une connexion immédiate.
+
+Bug corrigé au passage (Milestone 1, découvert en testant le rendu web) :
+
+- Le client Supabase (`shared/supabase/client.ts`) forçait `AsyncStorage`
+  même sur web, ce qui fait planter le rendu statique d'Expo Router
+  (`window is not defined` côté serveur au moment de l'export). Le storage
+  `AsyncStorage` n'est maintenant utilisé que sur iOS/Android ; sur web,
+  supabase-js retombe sur son propre comportement (localStorage dans le
+  navigateur, mémoire pendant le rendu serveur).
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 5 routes s'exportent sans erreur.
+- Migration appliquée avec succès sur le projet Supabase distant.
+
+Non vérifié (à faire manuellement) :
+
+- Parcours complet sur appareil réel (iOS/Android via Expo Go) : créer un
+  compte, se déconnecter, se reconnecter, modifier le nom affiché.
+- Comportement réel de la confirmation e-mail (dépend du réglage "Confirm
+  email" du projet Supabase, non modifié ici).

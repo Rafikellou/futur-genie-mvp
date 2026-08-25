@@ -1,18 +1,22 @@
+import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS } from '@shared/domain/subject';
 import { EXERCISE_TYPES } from '@shared/domain/exercise';
 import { QuizDataSchema, type Question, type QuizData } from '@shared/domain/quiz';
 
-// Read-only preview of the AI-generated draft (Milestone 5). Editing
-// (Milestone 6) and publishing (Milestone 7) are not built yet — this
-// screen only lets the teacher see what was generated, matching the
-// "no UI ahead of its milestone" approach already used in create-photo.tsx.
+// Editable preview of the AI-generated draft (Milestone 6). The teacher
+// stays in control of the final content (CLAUDE.md §6): title, instructions,
+// question text, answers and multiple-choice options can all be edited, and
+// questions can be removed. Nothing is persisted yet — publishing (with its
+// own "save the final version" step) is Milestone 7, so the edited quiz
+// lives only in this screen's state, same as the read-only Milestone 5
+// version did.
 export default function QuizDraftScreen() {
   const { quiz: quizParam } = useLocalSearchParams<{ quiz: string }>();
-  const quiz = parseQuiz(quizParam);
+  const [quiz, setQuiz] = useState<QuizData | null>(() => parseQuiz(quizParam));
 
   if (!quiz) {
     return (
@@ -28,18 +32,56 @@ export default function QuizDraftScreen() {
     );
   }
 
-  const gradeLabel = GRADES.find((g) => g.value === quiz.grade)?.label ?? quiz.grade;
-  const subjectLabel = SUBJECTS.find((s) => s.value === quiz.subject)?.label ?? quiz.subject;
-  const quizTypeLabel = EXERCISE_TYPES.find((t) => t.value === quiz.quizType)?.label ?? quiz.quizType;
+  // Narrowed once, explicitly typed: TypeScript can't otherwise carry the
+  // `quiz !== null` guard above into the closures declared below (they
+  // close over the mutable `quiz` binding, not the narrowed value at this
+  // point in the render).
+  const currentQuiz: QuizData = quiz;
+
+  const gradeLabel = GRADES.find((g) => g.value === currentQuiz.grade)?.label ?? currentQuiz.grade;
+  const subjectLabel = SUBJECTS.find((s) => s.value === currentQuiz.subject)?.label ?? currentQuiz.subject;
+  const quizTypeLabel =
+    EXERCISE_TYPES.find((t) => t.value === currentQuiz.quizType)?.label ?? currentQuiz.quizType;
+
+  function updateQuestion(questionId: string, updater: (question: Question) => Question) {
+    setQuiz((prev) =>
+      prev
+        ? {
+            ...prev,
+            questions: prev.questions.map((q) => (q.id === questionId ? updater(q) : q)),
+          }
+        : prev
+    );
+  }
+
+  function handleDeleteQuestion(questionId: string) {
+    Alert.alert('Supprimer cette question ?', 'Cette action est irréversible.', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: () =>
+          setQuiz((prev) =>
+            prev ? { ...prev, questions: prev.questions.filter((q) => q.id !== questionId) } : prev
+          ),
+      },
+    ]);
+  }
 
   function handleContinue() {
-    // Editing and publishing land in the next milestones. Kept as an
-    // explicit acknowledgment rather than a dead/disabled button so the
-    // flow stays understandable (same approach as create-photo.tsx).
-    Alert.alert(
-      'Devoir créé',
-      "La revue, la modification et la publication arrivent au prochain jalon."
-    );
+    const issues = findQuizIssues(currentQuiz);
+    if (issues.length > 0) {
+      Alert.alert('Devoir incomplet', issues[0]);
+      return;
+    }
+    if (!QuizDataSchema.safeParse(currentQuiz).success) {
+      Alert.alert('Devoir incomplet', 'Vérifiez les questions et les réponses avant de continuer.');
+      return;
+    }
+    // Publishing lands in the next milestone. Kept as an explicit
+    // acknowledgment rather than a dead/disabled button so the flow stays
+    // understandable (same approach as create-photo.tsx's Milestone 4 stage).
+    Alert.alert('Devoir prêt', 'La publication et le lien à partager arrivent au prochain jalon.');
   }
 
   return (
@@ -52,17 +94,30 @@ export default function QuizDraftScreen() {
         <Text style={styles.back}>‹ Retour</Text>
       </Pressable>
 
-      <Text style={styles.title}>{quiz.title}</Text>
+      <TextInput
+        style={styles.titleInput}
+        value={currentQuiz.title}
+        onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, title: text } : prev))}
+        placeholder="Titre du devoir"
+        accessibilityLabel="Titre du devoir"
+      />
       <Text style={styles.subtitle}>
-        {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {quiz.questions.length} question
-        {quiz.questions.length > 1 ? 's' : ''}
+        {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {currentQuiz.questions.length} question
+        {currentQuiz.questions.length > 1 ? 's' : ''}
       </Text>
 
-      {quiz.instructions ? <Text style={styles.instructions}>{quiz.instructions}</Text> : null}
+      <TextInput
+        style={styles.instructionsInput}
+        value={currentQuiz.instructions}
+        onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, instructions: text } : prev))}
+        placeholder="Consigne pour l'élève"
+        accessibilityLabel="Consigne du devoir"
+        multiline
+      />
 
-      {quiz.warnings.length > 0 && (
+      {currentQuiz.warnings.length > 0 && (
         <View style={styles.warningBox}>
-          {quiz.warnings.map((warning, index) => (
+          {currentQuiz.warnings.map((warning, index) => (
             <Text key={index} style={styles.warningText}>
               {warning}
             </Text>
@@ -71,8 +126,52 @@ export default function QuizDraftScreen() {
       )}
 
       <View style={styles.questionList}>
-        {quiz.questions.map((question, index) => (
-          <QuestionCard key={question.id} index={index} question={question} />
+        {currentQuiz.questions.map((question, index) => (
+          <QuestionCard
+            key={question.id}
+            index={index}
+            question={question}
+            onChangeQuestionText={(text) =>
+              updateQuestion(question.id, (q) => ({ ...q, question: text }))
+            }
+            onChangeChoiceText={(choiceIndex, text) =>
+              updateQuestion(question.id, (q) => {
+                if (q.type !== 'multiple_choice') return q;
+                const oldChoice = q.choices[choiceIndex];
+                const choices = q.choices.map((c, i) => (i === choiceIndex ? text : c));
+                const correctAnswer = q.correctAnswer === oldChoice ? text : q.correctAnswer;
+                return { ...q, choices, correctAnswer };
+              })
+            }
+            onSelectCorrectChoice={(choiceIndex) =>
+              updateQuestion(question.id, (q) =>
+                q.type === 'multiple_choice' ? { ...q, correctAnswer: q.choices[choiceIndex] } : q
+              )
+            }
+            onAddChoice={() =>
+              updateQuestion(question.id, (q) =>
+                q.type === 'multiple_choice' && q.choices.length < 6
+                  ? { ...q, choices: [...q.choices, ''] }
+                  : q
+              )
+            }
+            onRemoveChoice={(choiceIndex) =>
+              updateQuestion(question.id, (q) => {
+                if (q.type !== 'multiple_choice' || q.choices.length <= 2) return q;
+                const removed = q.choices[choiceIndex];
+                const choices = q.choices.filter((_, i) => i !== choiceIndex);
+                const correctAnswer = q.correctAnswer === removed ? choices[0] : q.correctAnswer;
+                return { ...q, choices, correctAnswer };
+              })
+            }
+            onSelectTrueFalse={(value) =>
+              updateQuestion(question.id, (q) => (q.type === 'true_false' ? { ...q, correctAnswer: value } : q))
+            }
+            onChangeShortAnswer={(text) =>
+              updateQuestion(question.id, (q) => (q.type === 'short_answer' ? { ...q, correctAnswer: text } : q))
+            }
+            onDelete={() => handleDeleteQuestion(question.id)}
+          />
         ))}
       </View>
 
@@ -93,30 +192,118 @@ function parseQuiz(raw: string | undefined): QuizData | null {
   }
 }
 
+// Local checks beyond the Zod schema: the schema stays permissive for what
+// the AI is allowed to generate (e.g. zero questions plus a warning when a
+// lesson is unreadable — CLAUDE.md §20), but a teacher should not be able to
+// continue with a draft that got edited into an unusable state.
+function findQuizIssues(quiz: QuizData): string[] {
+  const issues: string[] = [];
+  if (!quiz.title.trim()) issues.push('Le titre est vide.');
+  if (!quiz.instructions.trim()) issues.push('La consigne est vide.');
+  if (quiz.questions.length === 0) issues.push('Ajoutez au moins une question.');
+
+  quiz.questions.forEach((q, index) => {
+    const n = index + 1;
+    if (!q.question.trim()) issues.push(`La question ${n} est vide.`);
+    if (q.type === 'multiple_choice') {
+      if (q.choices.some((c) => !c.trim())) issues.push(`Une réponse de la question ${n} est vide.`);
+      if (!q.choices.includes(q.correctAnswer)) {
+        issues.push(`Choisissez la bonne réponse pour la question ${n}.`);
+      }
+    }
+    if (q.type === 'short_answer' && !q.correctAnswer.trim()) {
+      issues.push(`La réponse attendue de la question ${n} est vide.`);
+    }
+  });
+
+  return issues;
+}
+
 type QuestionCardProps = {
   index: number;
   question: Question;
+  onChangeQuestionText: (text: string) => void;
+  onChangeChoiceText: (choiceIndex: number, text: string) => void;
+  onSelectCorrectChoice: (choiceIndex: number) => void;
+  onAddChoice: () => void;
+  onRemoveChoice: (choiceIndex: number) => void;
+  onSelectTrueFalse: (value: boolean) => void;
+  onChangeShortAnswer: (text: string) => void;
+  onDelete: () => void;
 };
 
-function QuestionCard({ index, question }: QuestionCardProps) {
+function QuestionCard({
+  index,
+  question,
+  onChangeQuestionText,
+  onChangeChoiceText,
+  onSelectCorrectChoice,
+  onAddChoice,
+  onRemoveChoice,
+  onSelectTrueFalse,
+  onChangeShortAnswer,
+  onDelete,
+}: QuestionCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardLabel}>Question {index + 1}</Text>
-      <Text style={styles.cardQuestion}>{question.question}</Text>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardLabel}>Question {index + 1}</Text>
+        <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel="Supprimer cette question">
+          <Text style={styles.deleteText}>Supprimer</Text>
+        </Pressable>
+      </View>
+
+      <TextInput
+        style={styles.questionInput}
+        value={question.question}
+        onChangeText={onChangeQuestionText}
+        placeholder="Énoncé de la question"
+        accessibilityLabel={`Énoncé de la question ${index + 1}`}
+        multiline
+      />
 
       {question.type === 'multiple_choice' && (
         <View style={styles.choiceList}>
-          {question.choices.map((choice) => {
+          {question.choices.map((choice, choiceIndex) => {
             const isCorrect = choice === question.correctAnswer;
             return (
-              <View key={choice} style={[styles.choice, isCorrect && styles.choiceCorrect]}>
-                <Text style={[styles.choiceText, isCorrect && styles.choiceTextCorrect]}>
-                  {isCorrect ? '✓ ' : ''}
-                  {choice}
-                </Text>
+              <View key={choiceIndex} style={[styles.choiceRow, isCorrect && styles.choiceCorrect]}>
+                <Pressable
+                  onPress={() => onSelectCorrectChoice(choiceIndex)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isCorrect }}
+                  accessibilityLabel="Marquer comme bonne réponse"
+                  style={styles.radioTouchArea}
+                >
+                  <View style={[styles.radioOuter, isCorrect && styles.radioOuterSelected]}>
+                    {isCorrect && <View style={styles.radioInner} />}
+                  </View>
+                </Pressable>
+                <TextInput
+                  style={styles.choiceInput}
+                  value={choice}
+                  onChangeText={(text) => onChangeChoiceText(choiceIndex, text)}
+                  placeholder="Réponse"
+                  accessibilityLabel={`Réponse ${choiceIndex + 1} de la question ${index + 1}`}
+                />
+                {question.choices.length > 2 && (
+                  <Pressable
+                    onPress={() => onRemoveChoice(choiceIndex)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Supprimer cette réponse"
+                    hitSlop={8}
+                  >
+                    <Text style={styles.removeChoiceText}>✕</Text>
+                  </Pressable>
+                )}
               </View>
             );
           })}
+          {question.choices.length < 6 && (
+            <Pressable onPress={onAddChoice} accessibilityRole="button">
+              <Text style={styles.addChoiceText}>+ Ajouter une réponse</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -125,22 +312,36 @@ function QuestionCard({ index, question }: QuestionCardProps) {
           {[true, false].map((value) => {
             const isCorrect = value === question.correctAnswer;
             return (
-              <View
+              <Pressable
                 key={String(value)}
-                style={[styles.choice, isCorrect && styles.choiceCorrect]}
+                onPress={() => onSelectTrueFalse(value)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isCorrect }}
+                style={[styles.choiceRow, isCorrect && styles.choiceCorrect]}
               >
+                <View style={[styles.radioOuter, isCorrect && styles.radioOuterSelected]}>
+                  {isCorrect && <View style={styles.radioInner} />}
+                </View>
                 <Text style={[styles.choiceText, isCorrect && styles.choiceTextCorrect]}>
-                  {isCorrect ? '✓ ' : ''}
                   {value ? 'Vrai' : 'Faux'}
                 </Text>
-              </View>
+              </Pressable>
             );
           })}
         </View>
       )}
 
       {question.type === 'short_answer' && (
-        <Text style={styles.expectedAnswer}>Réponse attendue : {question.correctAnswer}</Text>
+        <View style={styles.shortAnswerRow}>
+          <Text style={styles.shortAnswerLabel}>Réponse attendue</Text>
+          <TextInput
+            style={styles.shortAnswerInput}
+            value={question.correctAnswer}
+            onChangeText={onChangeShortAnswer}
+            placeholder="Réponse attendue"
+            accessibilityLabel={`Réponse attendue de la question ${index + 1}`}
+          />
+        </View>
       )}
     </View>
   );
@@ -165,6 +366,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
+  titleInput: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    padding: 0,
+  },
   subtitle: {
     fontSize: 14,
     color: '#555555',
@@ -174,10 +381,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333333',
   },
-  instructions: {
+  instructionsInput: {
     fontSize: 15,
     color: '#333333',
     marginBottom: 16,
+    padding: 0,
   },
   warningBox: {
     backgroundColor: '#FFF6DF',
@@ -200,21 +408,35 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   cardLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: '#777777',
     textTransform: 'uppercase',
   },
-  cardQuestion: {
+  deleteText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#C0392B',
+  },
+  questionInput: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1A1A1A',
+    padding: 0,
   },
   choiceList: {
     gap: 8,
   },
-  choice: {
+  choiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#DDDDDD',
@@ -225,6 +447,33 @@ const styles = StyleSheet.create({
     borderColor: '#2E9E5B',
     backgroundColor: '#EAF7EF',
   },
+  radioTouchArea: {
+    padding: 2,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#AAAAAA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: '#2E9E5B',
+  },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#2E9E5B',
+  },
+  choiceInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333333',
+    padding: 0,
+  },
   choiceText: {
     fontSize: 15,
     color: '#333333',
@@ -233,10 +482,33 @@ const styles = StyleSheet.create({
     color: '#1F6E40',
     fontWeight: '600',
   },
-  expectedAnswer: {
-    fontSize: 15,
+  removeChoiceText: {
+    fontSize: 16,
+    color: '#999999',
+    paddingHorizontal: 2,
+  },
+  addChoiceText: {
+    color: '#208AEF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  shortAnswerRow: {
+    gap: 4,
+  },
+  shortAnswerLabel: {
+    fontSize: 13,
     color: '#1F6E40',
     fontWeight: '600',
+  },
+  shortAnswerInput: {
+    fontSize: 15,
+    color: '#1A1A1A',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   button: {
     backgroundColor: '#208AEF',

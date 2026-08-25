@@ -22,7 +22,7 @@
 | 3 | Création d'exercice (sans IA) | ✅ Terminé — vérifié sur appareil |
 | 4 | Photo de leçon | ✅ Terminé — vérifié sur appareil (iPhone) |
 | 5 | Génération IA | ✅ Terminé — vérifié sur appareil (iPhone) ; prompt affiné après retour utilisateur |
-| 6 | Revue et édition | À venir |
+| 6 | Revue et édition | ✅ Terminé — non encore vérifié sur appareil |
 | 7 | Publication et URL publique | À venir |
 | 8 | Expérience élève | À venir |
 | 9 | Partage et historique | À venir |
@@ -339,3 +339,95 @@ Non vérifié :
   `pedagogical-ai-engineer` — CP lecture, CE1 grammaire, CE2 maths, CM1
   histoire, CM2 sciences, page dense, page floue, etc.) : seul un cas réel
   (conjugaison CE2/CM1) a été testé jusqu'ici.
+
+## Milestone 6 — Revue et édition (détail)
+
+Implémenté :
+
+- `src/app/(app)/quiz-draft.tsx` passe de lecture seule à éditable : titre
+  et consigne (`TextInput`), énoncé de chaque question, réponse attendue
+  (réponse courte), options d'une question à choix multiples (texte de
+  chaque option, ajout jusqu'à 6, suppression jusqu'à 2 minimum), et le
+  choix de la bonne réponse (QCM et Vrai/Faux) via un contrôle radio
+  tactile sur l'option elle-même. Suppression d'une question entière avec
+  confirmation (action irréversible, pas d'annuler après coup). Toujours
+  aucune persistance : le brouillon édité reste en état local de l'écran,
+  reçu et modifié en mémoire — la sauvegarde arrive avec la publication au
+  Milestone 7.
+- Cohérence de la bonne réponse maintenue automatiquement pendant
+  l'édition plutôt que laissée à la charge du professeur : modifier le
+  texte de l'option actuellement correcte fait suivre `correctAnswer` ;
+  supprimer l'option correcte reporte automatiquement la bonne réponse sur
+  la première option restante (état toujours valide, à corriger par le
+  professeur si ce n'est pas la bonne option).
+- Avant "Continuer" : validation locale (titre/consigne/questions non
+  vides, au moins une question, bonne réponse présente parmi les options)
+  puis revalidation complète via `QuizDataSchema` (le même schéma que
+  l'Edge Function) — un message explicite en français bloque la suite si
+  le brouillon n'est pas exploitable. Le schéma Zod reste volontairement
+  permissif côté génération (CLAUDE.md §20 : 0 question + avertissement
+  est un état valide en sortie IA) ; les nouvelles règles ci-dessus
+  s'appliquent seulement à ce stade de revue, où un devoir vide ou
+  incomplet n'a plus de raison d'être.
+- `sourceEvidence` reste absent de cet écran (jamais affiché, jamais
+  modifiable), comme au Milestone 5.
+
+Décision notable :
+
+- Pas d'identifiant stable par option de QCM dans le schéma (juste un
+  tableau de chaînes + `correctAnswer` qui est l'une d'elles) : la bonne
+  réponse est donc suivie par égalité de texte au moment de l'édition,
+  pas par position. Limite connue et acceptée pour l'MVP : deux options
+  avec exactement le même texte au sein d'une question feraient basculer
+  les deux ensemble si l'une d'elles est éditée — cas marginal qui
+  n'apparaît pas dans une génération IA normale.
+- "Continuer" affiche toujours un message d'acquittement ("la publication
+  arrive au prochain jalon") plutôt qu'un bouton désactivé, même
+  principe que les jalons précédents — mais seulement une fois le
+  brouillon validé.
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 16 routes (dont `/quiz-draft`)
+  s'exportent toujours sans erreur.
+
+Vérifié manuellement sur appareil par l'utilisateur : édition du titre, de
+la consigne, du texte des questions, des options QCM (ajout/suppression),
+Vrai/Faux, réponse courte, suppression d'une question — tout fonctionne.
+
+Bug pédagogique repéré au passage (retour utilisateur : questions "très
+faciles" pour un CE2 réel) :
+
+- Diagnostic (`pedagogical-ai-engineer`) : le niveau (`grade`) était bien
+  transmis au modèle deux fois (règle système + paramètres de tâche), mais
+  la règle système ne calibrait explicitement que les deux niveaux
+  extrêmes ("CP est un lecteur débutant ; CM2 peut suivre un
+  raisonnement court") — rien n'ancrait concrètement ce qu'est une
+  question de niveau CE2/CE1/CM1, laissant le modèle par défaut sur
+  l'interprétation la plus prudente (donc la plus facile). Cet effet est
+  renforcé par la règle 10 ("préférer un devoir plus court mais fiable"),
+  qui pouvait se lire comme une invitation à simplifier plutôt qu'à
+  raccourcir. Les règles 1-2 (ancrage strict dans la photo, interdiction
+  d'inventer) ne sont pas la cause et n'ont pas été touchées — elles
+  restent le garde-fou anti-hallucination du produit.
+- `prompt.ts` (`SYSTEM_PROMPT`, règles 6 et 10) : règle 6 calibre
+  maintenant chaque niveau (CP → identifier/relire un fait ; CE1 →
+  rappeler et appliquer une règle simple à un cas très proche ; CE2 →
+  appliquer la règle/méthode enseignée à un nouvel exemple ou relier deux
+  faits de la leçon, sans se rabattre par défaut sur le pur rappel mot
+  pour mot ; CM1 → combiner deux éléments de la leçon ; CM2 → un court
+  raisonnement combinant plusieurs éléments), tout en rappelant que cela
+  ne permet jamais de sortir de ce qu'autorisent les règles 1-2. Règle 10
+  précise que "fiable" signifie "ancré dans la leçon", pas "simplifié
+  en dessous du niveau demandé". Redéployé
+  (`npx supabase functions deploy generate-quiz`).
+
+Non vérifié :
+
+- Le nouveau réglage de la règle 6/10 sur un cas réel : à confirmer par
+  l'utilisateur au prochain test (idéalement en comparant un même type de
+  leçon avant/après, ou plusieurs niveaux sur des leçons similaires),
+  conformément à CLAUDE.md §26 — un changement de prompt ne doit pas être
+  considéré acquis sans reconfirmation sur des exemples réels.

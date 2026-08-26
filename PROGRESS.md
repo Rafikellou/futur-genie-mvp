@@ -970,10 +970,79 @@ Vérifié :
   - toutes les lignes de test supprimées après vérification (suppression du
     devoir de test, cascade sur ses soumissions — confirmé à 0 restante).
 
+Vérifié sur appareil réel par l'utilisateur (iPhone, déploiement Vercel,
+après avoir poussé le commit — voir note ci-dessous) : création d'un devoir
+via l'appli, soumission via l'URL publique, soumission visible à la fois
+dans Supabase et dans l'écran « Mes devoirs » → « Réponses des élèves ».
+
 Non vérifié :
 
-- Parcours réel sur un appareil (mobile/web) : champ prénom → réponse au
-  devoir → soumission visible dans « Mes devoirs » → `quiz-results` de
-  l'enseignante. Le backend est vérifié directement (ci-dessus) mais pas
-  encore ce parcours de bout en bout à travers l'interface.
 - Android natif spécifiquement (comme aux jalons précédents).
+
+Note opérationnelle (rencontrée en testant le point ci-dessus) : le code de
+ce jalon avait été vérifié directement contre Supabase mais jamais commité
+ni poussé sur `main` — le déploiement Vercel testé sur iPhone tournait donc
+encore sur l'ancienne version (pas d'étape prénom visible). Commité et
+poussé (`279b485`) pour déclencher le redéploiement Vercel ; le parcours a
+ensuite été vérifié avec succès par l'utilisateur.
+
+### Suite donnée après vérification : une soumission par passage
+
+Retour utilisateur après le test ci-dessus : le bouton « Recommencer »
+(Milestone 8, correction 100 % client, jamais retiré) permettait de
+renvoyer une nouvelle soumission à chaque nouvel essai — polluant la liste
+de l'enseignante d'une ligne par tentative au lieu d'une ligne par élève.
+
+Options envisagées et écartées avant implémentation (décision produit
+explicite avec l'utilisateur) :
+
+- Dédupliquer en base sur le prénom (`quiz_id`, `student_name`) : rejeté —
+  deux élèves réels d'une même classe partagent souvent le même prénom
+  (Lucas, Emma…) ; une contrainte d'unicité sur le prénom fusionnerait ou
+  écraserait silencieusement les réponses de deux élèves différents. Pire
+  que le problème initial (perte de données au lieu de doublons visibles).
+- Dédupliquer en base sur un identifiant d'appareil anonyme persistant
+  (`quiz_id`, `device_token`) : rejeté pour la même raison sous un autre
+  angle — l'élémentaire utilise souvent des appareils partagés
+  (tablettes/ordinateurs de classe) ; deux élèves différents passant l'un
+  après l'autre sur le même appareil auraient le même token, et le second
+  écraserait silencieusement la soumission du premier.
+
+Solution retenue — restriction côté client uniquement, sans hypothèse
+d'identité :
+
+- `src/app/q/[slug].tsx` : un `useRef` (`hasSubmittedRef`, pas un state —
+  ne doit jamais provoquer de re-rendu) retient qu'une soumission a déjà
+  été envoyée pour ce passage. `handleSubmit` continue de calculer et
+  d'afficher la correction à chaque « Valider » (inchangé), mais n'appelle
+  `submitSubmission` que la première fois. Un « Recommencer » qui ramène à
+  « Valider » ensuite affiche bien la correction localement sans envoyer de
+  nouvelle ligne au serveur. Protège aussi contre un double-tap rapide sur
+  « Valider » avant que l'interface n'ait le temps de se mettre à jour.
+  Réinitialisé avec le reste de l'état au chargement d'un nouveau quiz
+  (changement de `slug`).
+
+Limite assumée, actée avec l'utilisateur : si l'élève ferme l'onglet et
+rouvre le lien plus tard (nouvelle session), une nouvelle soumission sera
+bien créée. Volontairement non traité — toute tentative fiable de le
+bloquer sans compte retomberait sur l'un des deux risques écartés
+ci-dessus. Cohérent avec le principe déjà acté du produit : le prénom est
+un système de confiance, pas une identité vérifiée (CLAUDE.md §32).
+
+Aucune migration, aucun changement de schéma ou de RPC — modification
+limitée à `src/app/q/[slug].tsx`.
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 23 routes s'exportent toujours
+  sans erreur.
+- `npm test` : 7/7 (suite `grading.test.ts`, non affectée par ce
+  changement).
+
+Non vérifié :
+
+- Parcours manuel sur appareil de la nouvelle protection elle-même
+  (Commencer → Valider → Recommencer → Valider à nouveau → une seule ligne
+  dans `quiz-results`). À confirmer par l'utilisateur.

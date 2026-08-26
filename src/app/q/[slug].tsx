@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -43,6 +43,14 @@ export default function PublicQuizScreen() {
   const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [submitted, setSubmitted] = useState(false);
+  // Guards the background submission, not just the correction display: a
+  // "Recommencer" (or a fast double-tap on "Valider") must never record a
+  // second row for the same sitting — the teacher's results list should
+  // show one line per student, not one per attempt (see PROGRESS.md,
+  // Milestone 9 follow-up). A ref (not state) because it must never trigger
+  // a re-render on its own and must survive across retries within this
+  // component instance.
+  const hasSubmittedRef = useRef(false);
 
   const load = useCallback(async () => {
     setState({ status: 'loading' });
@@ -72,6 +80,7 @@ export default function PublicQuizScreen() {
       setAnswers(createEmptyAnswers(parsed.data.questions));
       setSubmitted(false);
       setStarted(false);
+      hasSubmittedRef.current = false;
     } catch {
       setState({ status: 'error' });
     }
@@ -140,9 +149,15 @@ export default function PublicQuizScreen() {
 
   const handleSubmit = () => {
     setSubmitted(true);
-    // Fire-and-forget: the student's own correction below is computed
-    // locally and never depends on this call succeeding (see file header).
-    submitSubmission(slug, studentName, answers);
+    // "Recommencer" still recomputes and shows the correction locally every
+    // time (unchanged) — only the background recording is limited to the
+    // first attempt of this sitting.
+    if (!hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
+      // Fire-and-forget: the student's own correction above is computed
+      // locally and never depends on this call succeeding (see file header).
+      submitSubmission(slug, studentName, answers);
+    }
   };
 
   if (!started) {

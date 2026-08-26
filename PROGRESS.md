@@ -23,7 +23,7 @@
 | 4 | Photo de leçon | ✅ Terminé — vérifié sur appareil (iPhone) |
 | 5 | Génération IA | ✅ Terminé — vérifié sur appareil (iPhone) ; prompt affiné après retour utilisateur |
 | 6 | Revue et édition | ✅ Terminé — non encore vérifié sur appareil |
-| 7 | Publication et URL publique | ✅ Terminé — backend vérifié en conditions réelles, non encore vérifié sur appareil |
+| 7 | Publication et URL publique | ✅ Terminé et vérifié (iPhone + déploiement web sur Vercel) |
 | 8 | Expérience élève | À venir |
 | 9 | Partage et historique | À venir |
 | 10 | Durcissement et lancement | À venir |
@@ -539,33 +539,58 @@ Vérifié :
 Vérifié sur appareil réel (iPhone) par l'utilisateur : parcours complet
 créer → générer → éditer → publier fonctionne.
 
+### Déploiement web (fait)
+
+Déployé sur Vercel, domaine par défaut fourni par Vercel pour l'instant
+(`https://futur-genie-mvp-murex.vercel.app` — le sous-domaine personnalisé
+`quizs.futurgenie.com` envisagé par l'utilisateur reste possible plus tard,
+sans changement de code : juste ajouter le domaine dans Vercel et le
+CNAME chez le registrar).
+
+- `package.json` : script `build:web` (= `expo export --platform web`,
+  suivi d'une étape de préparation — voir plus bas).
+- `scripts/prepare-public-quiz-shell.js` (nouveau) : copie le fichier
+  exporté `dist/q/[slug].html` (nom littéral avec crochets, produit par
+  l'export statique d'une route dynamique Expo Router) vers
+  `dist/q/shell.html`, un nom de fichier simple.
+- `vercel.json` : trois itérations avant d'obtenir une config qui
+  fonctionne réellement (détail ci-dessous, pour éviter de refaire les
+  mêmes essais si ce fichier doit être retouché) :
+  1. `rewrites: [{ "source": "/q/:slug", "destination": "/q/[slug].html" }]`
+     — échec (404 sur un vrai slug), y compris en testant la destination
+     encodée en URL. Cause réelle découverte ensuite : non liée à
+     l'encodage des crochets.
+  2. Cause identifiée via la documentation Vercel : l'ordre de routage
+     place le contrôle du système de fichiers *avant* les `rewrites`. Le
+     dossier `q/` existant réellement dans l'export (il contient
+     `shell.html`), Vercel semble intercepter toute requête sous `/q/...`
+     à cette étape, avant même d'atteindre la règle `rewrites`.
+  3. Solution : format `routes` (l'ancien format `vercel.json`, qui ne
+     peut pas être combiné à `rewrites`/`cleanUrls`), où l'on place
+     explicitement notre règle *avant* `{"handle": "filesystem"}` :
+     ```json
+     "routes": [
+       { "src": "/q/[^/]+$", "dest": "/q/shell.html" },
+       { "handle": "filesystem" },
+       { "src": "/(.*)", "dest": "/$1.html" }
+     ]
+     ```
+     La troisième règle (après le handle filesystem) reconstitue le
+     comportement de résolution des URL sans extension que `cleanUrls`
+     offrait (`/create` → `create.html`, etc.), perdu en abandonnant
+     `cleanUrls`/`rewrites` pour le format `routes`.
+- `.env` (local, non commité) : `EXPO_PUBLIC_APP_URL=https://futur-genie-mvp-murex.vercel.app`
+  ajouté, pour que l'écran de publication affiche une URL complète
+  cliquable sur iPhone/Android (au lieu de `/q/<slug>` seul).
+
+Vérifié : balayage complet des routes sur le déploiement réel après le
+correctif final — `/`, `/create`, `/profile`, `/sign-in`, `/sign-up`,
+`/quiz-draft`, `/quiz-published` → 200 ; `/q/<slug publié>` → 200 (contenu
+attendu, confirmé aussi manuellement par l'utilisateur) ; `/q/<slug
+inexistant>` → 200 avec l'état "devoir introuvable" (pas de 404 brut).
+
 Non vérifié :
 
 - Android.
-- Ouverture du lien public depuis un vrai navigateur (aucun site web n'était
-  encore déployé au moment du test — voir déploiement web ci-dessous).
-
-### Déploiement web (préparé, pas encore fait)
-
-Aucun domaine de production n'était déployé jusqu'ici (Milestone 10). En
-préparation d'un déploiement Vercel sur un sous-domaine dédié
-(`quizs.futurgenie.com`, choix de l'utilisateur) :
-
-- `vercel.json` (nouveau) : commande de build `npm run build:web` (= `expo
-  export --platform web`), dossier de sortie `dist`, `cleanUrls` activé
-  (sert `create.html` sur `/create`, etc.), et une règle de réécriture
-  `/q/:slug` → `/q/[slug].html` — nécessaire car l'export statique d'une
-  route dynamique Expo Router produit un seul fichier littéral
-  (`[slug].html`), pas une page par slug ; c'est l'approche documentée par
-  Expo Router pour un hébergement statique de routes dynamiques.
-- `package.json` : script `build:web` ajouté.
-
-Reste à faire par l'utilisateur (compte Vercel/DNS, hors de portée de cet
-environnement) : créer le projet Vercel à partir du dépôt GitHub, y définir
-`EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (valeurs
-publiques, sans risque), ajouter le sous-domaine personnalisé et son
-enregistrement DNS CNAME chez le registrar. Une fois en ligne, définir aussi
-`EXPO_PUBLIC_APP_URL=https://quizs.futurgenie.com` dans `.env` (app mobile)
-pour que l'écran de publication affiche une URL complète sur iPhone/Android
-(actuellement uniquement `/q/<slug>`, sans domaine — limite notée plus
-haut).
+- Sous-domaine personnalisé (`quizs.futurgenie.com`) — resté sur le domaine
+  par défaut de Vercel pour l'instant, par choix de l'utilisateur.

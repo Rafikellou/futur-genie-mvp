@@ -27,7 +27,7 @@
 | 8 | Expérience élève | ✅ Terminé et vérifié (mobile + laptop, déploiement Vercel) |
 | 9 | Suivi des réponses élèves | ✅ Terminé et vérifié (backend + iPhone, déploiement Vercel) |
 | 10 | Partage et historique | ✅ Terminé et vérifié sur appareil (iPhone) |
-| 11 | Durcissement et lancement | À venir |
+| 11 | Durcissement et lancement | En cours |
 
 Détail du contenu de chaque milestone : voir la planification validée en
 conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
@@ -1128,3 +1128,123 @@ Non vérifié :
 - Android natif spécifiquement (comme aux jalons précédents).
 - Web : le repli "copier" du partage (pas de feuille native sur web) n'a
   été vérifié qu'en lecture de code, pas manuellement.
+
+## Milestone 11 — Durcissement et lancement (détail)
+
+> **Statut : en cours.** Revue technique consolidée effectuée (skill
+> `qa-release-engineer`) ; reste la validation sur appareils réels et
+> quelques décisions produit, listées ci-dessous.
+
+### Revue technique consolidée (faite)
+
+Résultat complet : **aucun BLOCKER**. Détail par thème :
+
+- **Secrets** : recherche sur tout l'historique git (`.env` jamais tracké
+  ni jamais commité ; aucun motif de clé — `sk-…`, `service_role` — trouvé
+  dans l'historique des Edge Functions). `generate-quiz`/`openai.ts` ne
+  logue jamais la clé OpenAI, l'image ni le corps de la réponse du
+  fournisseur — seulement un code d'erreur stable et une durée
+  (CLAUDE.md §24/§49). RAS.
+- **RLS** : revue statique complète des 3 migrations (`profiles`,
+  `quizzes`, `submissions`, vue `public_quizzes`, RPC `publish_quiz` et
+  `submit_quiz_answers`) — cohérente avec la conception déjà vérifiée en
+  conditions réelles aux Milestones 7 et 9. Une lacune trouvée et corrigée
+  (voir "Correctif appliqué" ci-dessous).
+- **Scénarios d'erreur** : revue de code de tous les cas listés au
+  CLAUDE.md §39 (photo illisible, contenu insuffisant, timeout modèle,
+  JSON invalide, coupure réseau à la génération/publication, session
+  expirée, `/q/[slug]` introuvable) — chaque cas retombe sur un message
+  français centralisé (`shared/domain/generationErrors.ts`), jamais de
+  détail technique brut. Session expirée : confirmé que `AuthProvider`
+  écoute `onAuthStateChange` et que `Stack.Protected` redirige
+  automatiquement vers la connexion, pas seulement un message statique.
+- **Abus de `submit_quiz_answers`** (RPC `security definer`, appelable par
+  `anon` sans limite de fréquence) : risque réel jugé faible (le score est
+  toujours recalculé serveur, aucun appel LLM impliqué — coût
+  infrastructure négligeable même en cas de spam). **Décision produit
+  (utilisateur)** : accepté tel quel pour le MVP, à revisiter seulement si
+  un abus réel est observé (CLAUDE.md §54). Même logique pour l'absence de
+  limite de fréquence sur `generate-quiz` (authentifié, coût OpenAI réel
+  par appel, mais nécessite un compte enseignant).
+- **Brouillons orphelins** (insertion réussie, `publish_quiz` échoué —
+  connu depuis Milestone 7) : **décision produit (utilisateur)** — accepté
+  tel quel pour le MVP, aucun coût ni risque de sécurité.
+- **Tests automatisés** : `npx tsc --noEmit` OK, `npm run lint` OK,
+  `npm test` 10/10, `npx expo export --platform web` 23 routes exportées
+  sans erreur. Tests Deno de `generate-quiz` toujours impossibles à
+  exécuter dans cet environnement (pas de runtime Deno) — inchangé depuis
+  Milestone 5, à lancer par l'utilisateur si un runtime Deno est
+  disponible sur sa machine.
+
+### Correctif appliqué : verrou sur les colonnes de publication
+
+**Constat** : la policy RLS `UPDATE` de `quizzes` (Milestone 7) protège la
+ligne (un enseignant ne peut modifier que la sienne) mais pas les
+colonnes — un enseignant pouvait donc modifier `status`, `public_slug`,
+`public_quiz_data` ou `published_at` directement via l'API REST, sans
+passer par `publish_quiz()`. Impact réel limité (jamais de fuite
+inter-enseignants, RLS restait au niveau ligne), mais cela permettait de
+publier avec un `public_slug` devinable (aucune contrainte de format en
+base) ou un `public_quiz_data` conservant encore `sourceEvidence` —
+cassant les garanties documentées au CLAUDE.md §23/§29 pour son propre
+devoir.
+
+**Correctif** (migration `20260826150000_guard_quiz_publish_columns.sql`,
+poussée sur le projet distant) : trigger `BEFORE UPDATE` sur `quizzes` qui
+bloque toute modification directe de ces 4 colonnes, sauf si un indicateur
+local à la transaction est positionné — indicateur que seule la fonction
+`publish_quiz()` pose, juste avant ses propres écritures sur ces colonnes
+(`set_config('app.allow_publish_columns', 'on', true)`, portée limitée à
+la transaction, aucun nettoyage nécessaire). L'app n'a jamais modifié ces
+colonnes autrement que via `publish_quiz()` — aucun changement de
+comportement pour le parcours existant.
+
+Vérifié :
+
+- `npx supabase db push` : migration appliquée sans erreur sur le projet
+  distant (SQL valide, trigger et fonction créés).
+
+Non vérifié (voir note ci-dessous) :
+
+- Comportement réel du trigger en conditions réelles (bloquer une
+  modification directe, laisser passer `publish_quiz()`). Les jalons
+  précédents vérifiaient ce type de changement via un rôle `authenticated`
+  simulé (`request.jwt.claims`) dans l'éditeur SQL Supabase — accès direct
+  à la base que cette session n'a délibérément pas (mot de passe DB jamais
+  partagé dans le chat, voir `supabase/README.md`). Tentative alternative
+  via l'API Auth (créer un compte de test réel, obtenir un vrai jeton) :
+  bloquée par la confirmation d'e-mail actuellement activée sur le projet
+  (le compte de test `qa.m11.guard.…@gmail.com` a été créé mais n'a jamais
+  été confirmé — inoffensif, non utilisable pour se connecter, à supprimer
+  au choix depuis le tableau de bord Supabase Auth si souhaité).
+  **Reste à faire par l'utilisateur** : coller dans l'éditeur SQL Supabase
+  (en remplaçant `<uuid_enseignant>` par un id réel de `profiles`) :
+
+  ```sql
+  select set_config('request.jwt.claims', json_build_object('sub', '<uuid_enseignant>')::text, true);
+  set local role authenticated;
+
+  -- Doit échouer avec l'erreur du trigger :
+  update public.quizzes set public_slug = 'HACKED123'
+  where teacher_id = '<uuid_enseignant>' and status = 'draft' limit 1;
+
+  -- Doit réussir normalement :
+  select public.publish_quiz(id) from public.quizzes
+  where teacher_id = '<uuid_enseignant>' and status = 'draft' limit 1;
+  ```
+
+### Reste à faire pour clore ce jalon
+
+- **BLOCKER pour un vrai lancement, pas pour la suite du développement** :
+  Android natif — jamais testé sur aucun des 10 jalons précédents, cible
+  produit explicite (CLAUDE.md §7). Nécessite l'utilisateur (appareil
+  physique ou émulateur).
+- Parcours doré (§51) rejoué de bout en bout sur iOS et sur web avec un
+  compte enseignant neuf, en une seule passe continue.
+- Repli "copier le lien" sur web (Milestone 10) — jamais cliqué
+  manuellement, seulement relu en code.
+- Passe accessibilité (§37) — jamais faite explicitement.
+- Vérification manuelle du trigger ci-dessus (éditeur SQL Supabase).
+- Décider si le sous-domaine personnalisé (`quizs.futurgenie.com`,
+  différé depuis Milestone 7) est traité à ce jalon ou reste hors
+  périmètre.

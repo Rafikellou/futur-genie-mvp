@@ -24,7 +24,7 @@
 | 5 | Génération IA | ✅ Terminé — vérifié sur appareil (iPhone) ; prompt affiné après retour utilisateur |
 | 6 | Revue et édition | ✅ Terminé — non encore vérifié sur appareil |
 | 7 | Publication et URL publique | ✅ Terminé et vérifié (iPhone + déploiement web sur Vercel) |
-| 8 | Expérience élève | ✅ Terminé — non encore vérifié sur appareil |
+| 8 | Expérience élève | ✅ Terminé et vérifié (mobile + laptop, déploiement Vercel) |
 | 9 | Partage et historique | À venir |
 | 10 | Durcissement et lancement | À venir |
 
@@ -643,14 +643,25 @@ Vérifié :
 - `npx expo export --platform web` : les 19 routes s'exportent toujours
   sans erreur, dont `/q/[slug]`.
 
+Complété après la première rédaction de ce jalon :
+
+- Infra de test mise en place (`jest` + `jest-expo`, script `npm test`),
+  jusque-là absente malgré la décision technique qui la prévoyait en haut
+  de ce fichier. `src/features/quiz-taking/grading.test.ts` (7 tests)
+  couvre `createEmptyAnswers`/`areAllAnswered`/`gradeQuiz` : réponse vide
+  = non répondu, espace seul = non répondu, QCM/Vrai-Faux notés par
+  comparaison directe, réponse courte toujours exclue du score quelle que
+  soit sa formulation, `gradableCount` à 0 si le devoir n'a que des
+  réponses courtes. `npm test` : 7/7 OK.
+- Poussé sur `main` (commit `ee12f71`) pour redéploiement automatique sur
+  Vercel (intégration GitHub existante depuis le Milestone 7).
+
+Vérifié sur appareil réel par l'utilisateur (mobile et laptop, sur le
+déploiement Vercel `https://futur-genie-mvp-murex.vercel.app`) : répondre
+à un devoir publié, valider, voir le score et la correction — fonctionne.
+
 Non vérifié :
 
-- Aucun test automatisé exécuté sur `grading.ts` : Jest n'est pas encore
-  installé dans le projet (malgré la décision technique qui le prévoit en
-  haut de ce fichier — seuls les tests Deno de l'Edge Function existent
-  aujourd'hui, eux aussi non exécutés faute de runtime). La fonction reste
-  petite et pure ; à couvrir par un test dès que l'outillage Jest sera mis
-  en place.
-- Parcours complet sur appareil réel (iPhone/Android) et sur le
-  déploiement Vercel : répondre à un devoir publié, valider, voir la
-  correction — à faire confirmer par l'utilisateur.
+- Android natif spécifiquement (l'écran est universel et le parcours web
+  a été vérifié ; pas de test isolé sur un appareil Android natif à ce
+  jalon).

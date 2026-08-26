@@ -11,6 +11,7 @@ import {
   QUESTION_COUNT_OPTIONS,
   QuizType,
 } from '@shared/domain/exercise';
+import { COLORS } from '@/theme/colors';
 
 const QUESTION_COUNT_CHOICES = QUESTION_COUNT_OPTIONS.map((count) => ({
   value: count,
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   back: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     marginBottom: 12,
   },
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
     color: '#333333',
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',

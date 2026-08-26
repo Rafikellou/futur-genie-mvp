@@ -4,6 +4,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 
 import { Screen } from '@/components/Screen';
 import { supabase } from '@shared/supabase/client';
+import { COLORS } from '@/theme/colors';
 
 // Per-quiz results screen (Milestone 9, CLAUDE.md §5): who answered a given
 // published quiz, and how they scored — the teacher's only view into student
@@ -59,7 +60,7 @@ export default function QuizResultsScreen() {
 
       {state.status === 'loading' && (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#208AEF" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
 
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   back: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     marginBottom: 12,
   },
@@ -188,7 +189,7 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 24,

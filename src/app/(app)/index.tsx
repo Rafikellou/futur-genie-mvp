@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { COLORS } from '@/theme/colors';
 
 export default function HomeScreen() {
   const { profile } = useAuth();
@@ -51,12 +52,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   profileLink: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },
   createButton: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -69,14 +70,14 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     borderWidth: 2,
-    borderColor: '#208AEF',
+    borderColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 12,
   },
   secondaryButtonText: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },

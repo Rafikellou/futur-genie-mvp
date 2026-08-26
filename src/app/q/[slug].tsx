@@ -22,6 +22,7 @@ import {
   type AnswerMap,
 } from '@/features/quiz-taking/grading';
 import { submitSubmission } from '@/features/quiz-taking/submitSubmission';
+import { COLORS } from '@/theme/colors';
 
 type LoadState =
   | { status: 'loading' }
@@ -93,7 +94,7 @@ export default function PublicQuizScreen() {
   if (state.status === 'loading') {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#208AEF" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Chargement du devoir…</Text>
       </View>
     );
@@ -394,14 +395,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   scoreBox: {
-    backgroundColor: '#EAF2FB',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 10,
     padding: 14,
     marginBottom: 20,
     alignItems: 'center',
   },
   scoreText: {
-    color: '#1A5FA0',
+    color: COLORS.primaryPressed,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -438,8 +439,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   choiceOptionSelected: {
-    borderColor: '#208AEF',
-    backgroundColor: '#EAF2FB',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
   },
   choiceOptionCorrect: {
     borderColor: '#2E9E5B',
@@ -516,14 +517,14 @@ const styles = StyleSheet.create({
     color: '#555555',
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     paddingHorizontal: 24,
     alignItems: 'center',
   },
   buttonDisabled: {
-    backgroundColor: '#A9CDEF',
+    backgroundColor: COLORS.primaryMuted,
   },
   buttonText: {
     color: '#FFFFFF',
@@ -532,7 +533,7 @@ const styles = StyleSheet.create({
   },
   buttonSecondary: {
     borderWidth: 2,
-    borderColor: '#208AEF',
+    borderColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 24,
@@ -540,7 +541,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   buttonSecondaryText: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },

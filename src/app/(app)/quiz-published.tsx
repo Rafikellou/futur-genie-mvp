@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 
 import { buildPublicQuizUrl } from '@/features/quiz-publishing/publicQuizUrl';
 import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
+import { COLORS } from '@/theme/colors';
 
 // Result screen of Milestone 7's publish action: the teacher's confirmation
 // that the quiz is live, plus the public URL to give to students, with the
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#208AEF',
+    color: COLORS.primary,
   },
   shareRow: {
     flexDirection: 'row',
@@ -136,18 +137,18 @@ const styles = StyleSheet.create({
   shareButton: {
     flex: 1,
     borderWidth: 2,
-    borderColor: '#208AEF',
+    borderColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
   },
   shareButtonText: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 15,
     fontWeight: '600',
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -160,14 +161,14 @@ const styles = StyleSheet.create({
   },
   buttonSecondary: {
     borderWidth: 2,
-    borderColor: '#208AEF',
+    borderColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 12,
   },
   buttonSecondaryText: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -23,6 +23,7 @@ import {
   GENERATION_ERROR_MESSAGES,
   RETAKE_PHOTO_ERRORS,
 } from '@shared/domain/generationErrors';
+import { COLORS } from '@/theme/colors';
 
 type PhotoSource = 'camera' | 'library';
 
@@ -272,7 +273,7 @@ function PhotoButton({ label, onPress, loading, disabled, primary = false }: Pho
       accessibilityLabel={label}
     >
       {loading ? (
-        <ActivityIndicator color={primary ? '#FFFFFF' : '#208AEF'} />
+        <ActivityIndicator color={primary ? '#FFFFFF' : COLORS.primary} />
       ) : (
         <Text style={[styles.buttonText, !primary && styles.buttonTextSecondary]}>{label}</Text>
       )}
@@ -291,7 +292,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   back: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     marginBottom: 12,
   },
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
   buttonSecondary: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#208AEF',
+    borderColor: COLORS.primary,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -353,6 +354,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buttonTextSecondary: {
-    color: '#208AEF',
+    color: COLORS.primary,
   },
 });

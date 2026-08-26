@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { COLORS } from '@/theme/colors';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
   link: {
     textAlign: 'center',
     marginTop: 20,
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 14,
   },
 });

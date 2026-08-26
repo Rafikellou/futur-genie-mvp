@@ -16,6 +16,7 @@ import { supabase } from '@shared/supabase/client';
 import { Screen } from '@/components/Screen';
 import { composeShareText } from '@/features/quiz-sharing/composeShareText';
 import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
+import { COLORS } from '@/theme/colors';
 
 // Minimal entry point (Milestone 9): just enough to see one's own quizzes and
 // reach a published one's results. Full history UX (filters, reopen a draft,
@@ -107,7 +108,7 @@ export default function MyQuizzesScreen() {
 
       {state.status === 'loading' && (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#208AEF" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
 
@@ -321,12 +322,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   back: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     marginBottom: 12,
   },
   selectToggle: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -373,12 +374,12 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#208AEF',
+    borderColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
   },
   checkboxDisabled: {
     borderColor: '#CCCCCC',
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 24,
@@ -456,13 +457,13 @@ const styles = StyleSheet.create({
   shareButton: {
     flex: 1,
     borderWidth: 2,
-    borderColor: '#208AEF',
+    borderColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
   },
   shareButtonText: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 15,
     fontWeight: '600',
   },

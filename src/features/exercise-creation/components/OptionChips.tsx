@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { COLORS } from '@/theme/colors';
+
 // Generic single-select chip row, reused for every choice in the create-
 // exercise form (grade, subject, exercise type, number of questions).
 // Kept generic rather than one component per choice: the four selectors
@@ -57,8 +59,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   chipSelected: {
-    borderColor: '#208AEF',
-    backgroundColor: '#EAF4FE',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
   },
   chipText: {
     fontSize: 15,
@@ -66,7 +68,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontWeight: '700',
   },
 });

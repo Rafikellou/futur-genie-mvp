@@ -11,6 +11,7 @@ import {
 
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { COLORS } from '@/theme/colors';
 
 export default function ProfileScreen() {
   const { session, profile, updateDisplayName, signOut } = useAuth();
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   back: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     marginBottom: 12,
   },
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',

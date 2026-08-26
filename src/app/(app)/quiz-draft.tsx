@@ -17,6 +17,7 @@ import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS } from '@shared/domain/subject';
 import { EXERCISE_TYPES } from '@shared/domain/exercise';
 import { QuizDataSchema, type Question, type QuizData } from '@shared/domain/quiz';
+import { COLORS } from '@/theme/colors';
 
 // Editable preview of the AI-generated draft (Milestone 6), now wired to
 // publishing (Milestone 7). The teacher stays in control of the final
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   back: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 16,
     marginBottom: 12,
   },
@@ -568,7 +569,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   addChoiceText: {
-    color: '#208AEF',
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: '600',
     marginTop: 2,
@@ -596,7 +597,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   button: {
-    backgroundColor: '#208AEF',
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',

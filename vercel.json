@@ -3,6 +3,6 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/q/:slug", "destination": "/q/%5Bslug%5D.html" }
+    { "source": "/q/:slug", "destination": "/q/shell.html" }
   ]
 }

@@ -24,7 +24,7 @@
 | 5 | Génération IA | ✅ Terminé — vérifié sur appareil (iPhone) ; prompt affiné après retour utilisateur |
 | 6 | Revue et édition | ✅ Terminé — non encore vérifié sur appareil |
 | 7 | Publication et URL publique | ✅ Terminé et vérifié (iPhone + déploiement web sur Vercel) |
-| 8 | Expérience élève | À venir |
+| 8 | Expérience élève | ✅ Terminé — non encore vérifié sur appareil |
 | 9 | Partage et historique | À venir |
 | 10 | Durcissement et lancement | À venir |
 
@@ -594,3 +594,63 @@ Non vérifié :
 - Android.
 - Sous-domaine personnalisé (`quizs.futurgenie.com`) — resté sur le domaine
   par défaut de Vercel pour l'instant, par choix de l'utilisateur.
+
+## Milestone 8 — Expérience élève (détail)
+
+Implémenté :
+
+- `src/features/quiz-taking/grading.ts` (nouveau) : logique de correction,
+  pure et sans dépendance React/Supabase — `createEmptyAnswers`,
+  `areAllAnswered`, `gradeQuiz`. QCM et Vrai/Faux sont corrigés
+  automatiquement (comparaison directe à `correctAnswer`, déjà présent dans
+  `public_quiz_data`). Réponse courte est volontairement exclue du score
+  automatique (pas de matching flou texte — décision déjà actée au
+  Milestone 7, ci-dessus) : l'élève compare lui-même sa réponse à la
+  réponse attendue, affichée après validation.
+- `src/app/q/[slug].tsx` : l'écran passe de lecture seule à interactif.
+  QCM (choix unique tactile), Vrai/Faux (deux boutons), réponse courte
+  (champ texte). Bouton "Valider mes réponses" désactivé tant que toutes
+  les questions n'ont pas de réponse. Après validation : score
+  "X/Y bonnes réponses" (uniquement sur les questions auto-corrigées,
+  absent si le devoir n'en contient aucune), correction visuelle par
+  question (✅/❌, jamais la seule couleur — CLAUDE.md §37), réponse
+  attendue affichée pour les réponses courtes, `explanation` affichée
+  (déjà présente dans `PublicQuestionSchema`, jamais `sourceEvidence`).
+  Bouton "Recommencer" pour reprendre le devoir depuis le début (aucune
+  réponse n'étant jamais persistée, un nouvel essai ne coûte rien).
+- Toujours aucune donnée élève collectée ni envoyée nulle part (CLAUDE.md
+  §32/§36) : les réponses vivent uniquement en état local du composant,
+  perdues à la fermeture/au rechargement de la page.
+
+Décision notable :
+
+- Le score n'inclut que les questions QCM/Vrai-Faux. Une question à
+  réponse courte n'est jamais marquée automatiquement correcte/incorrecte
+  (pas de matching flou, texte accepté = infini de formulations
+  possibles) ; elle est affichée avec la réponse attendue pour
+  auto-correction par l'élève, comme sur une page de correction papier.
+  Si un devoir "Mixte" ne contient que des réponses courtes, aucune ligne
+  de score n'apparaît (`gradableCount === 0`) — seulement l'invitation à
+  se corriger question par question.
+- Pas de nouvelle table Supabase ni de RPC : conforme à la décision déjà
+  actée au Milestone 7 ("Correction élève" dans la section décisions
+  techniques ci-dessus).
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 19 routes s'exportent toujours
+  sans erreur, dont `/q/[slug]`.
+
+Non vérifié :
+
+- Aucun test automatisé exécuté sur `grading.ts` : Jest n'est pas encore
+  installé dans le projet (malgré la décision technique qui le prévoit en
+  haut de ce fichier — seuls les tests Deno de l'Edge Function existent
+  aujourd'hui, eux aussi non exécutés faute de runtime). La fonction reste
+  petite et pure ; à couvrir par un test dès que l'outillage Jest sera mis
+  en place.
+- Parcours complet sur appareil réel (iPhone/Android) et sur le
+  déploiement Vercel : répondre à un devoir publié, valider, voir la
+  correction — à faire confirmer par l'utilisateur.

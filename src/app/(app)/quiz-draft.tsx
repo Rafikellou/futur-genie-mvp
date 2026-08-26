@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { Screen } from '@/components/Screen';
 import { supabase } from '@shared/supabase/client';
 import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS } from '@shared/domain/subject';
@@ -32,15 +33,17 @@ export default function QuizDraftScreen() {
 
   if (!quiz) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button">
-          <Text style={styles.back}>‹ Retour</Text>
-        </Pressable>
-        <Text style={styles.title}>Devoir introuvable</Text>
-        <Text style={styles.body}>
-          Ce brouillon n&apos;est plus disponible. Revenez en arrière et recommencez.
-        </Text>
-      </ScrollView>
+      <Screen>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button">
+            <Text style={styles.back}>‹ Retour</Text>
+          </Pressable>
+          <Text style={styles.title}>Devoir introuvable</Text>
+          <Text style={styles.body}>
+            Ce brouillon n&apos;est plus disponible. Revenez en arrière et recommencez.
+          </Text>
+        </ScrollView>
+      </Screen>
     );
   }
 
@@ -139,115 +142,117 @@ export default function QuizDraftScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Pressable onPress={() => router.back()} accessibilityRole="button">
-        <Text style={styles.back}>‹ Retour</Text>
-      </Pressable>
+    <Screen>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Pressable onPress={() => router.back()} accessibilityRole="button">
+          <Text style={styles.back}>‹ Retour</Text>
+        </Pressable>
 
-      <TextInput
-        style={styles.titleInput}
-        value={currentQuiz.title}
-        onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, title: text } : prev))}
-        placeholder="Titre du devoir"
-        accessibilityLabel="Titre du devoir"
-      />
-      <Text style={styles.subtitle}>
-        {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {currentQuiz.questions.length} question
-        {currentQuiz.questions.length > 1 ? 's' : ''}
-      </Text>
+        <TextInput
+          style={styles.titleInput}
+          value={currentQuiz.title}
+          onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, title: text } : prev))}
+          placeholder="Titre du devoir"
+          accessibilityLabel="Titre du devoir"
+        />
+        <Text style={styles.subtitle}>
+          {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {currentQuiz.questions.length} question
+          {currentQuiz.questions.length > 1 ? 's' : ''}
+        </Text>
 
-      <TextInput
-        style={styles.instructionsInput}
-        value={currentQuiz.instructions}
-        onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, instructions: text } : prev))}
-        placeholder="Consigne pour l'élève"
-        accessibilityLabel="Consigne du devoir"
-        multiline
-      />
+        <TextInput
+          style={styles.instructionsInput}
+          value={currentQuiz.instructions}
+          onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, instructions: text } : prev))}
+          placeholder="Consigne pour l'élève"
+          accessibilityLabel="Consigne du devoir"
+          multiline
+        />
 
-      {currentQuiz.warnings.length > 0 && (
-        <View style={styles.warningBox}>
-          {currentQuiz.warnings.map((warning, index) => (
-            <Text key={index} style={styles.warningText}>
-              {warning}
-            </Text>
+        {currentQuiz.warnings.length > 0 && (
+          <View style={styles.warningBox}>
+            {currentQuiz.warnings.map((warning, index) => (
+              <Text key={index} style={styles.warningText}>
+                {warning}
+              </Text>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.questionList}>
+          {currentQuiz.questions.map((question, index) => (
+            <QuestionCard
+              key={question.id}
+              index={index}
+              question={question}
+              onChangeQuestionText={(text) =>
+                updateQuestion(question.id, (q) => ({ ...q, question: text }))
+              }
+              onChangeChoiceText={(choiceIndex, text) =>
+                updateQuestion(question.id, (q) => {
+                  if (q.type !== 'multiple_choice') return q;
+                  const oldChoice = q.choices[choiceIndex];
+                  const choices = q.choices.map((c, i) => (i === choiceIndex ? text : c));
+                  const correctAnswer = q.correctAnswer === oldChoice ? text : q.correctAnswer;
+                  return { ...q, choices, correctAnswer };
+                })
+              }
+              onSelectCorrectChoice={(choiceIndex) =>
+                updateQuestion(question.id, (q) =>
+                  q.type === 'multiple_choice' ? { ...q, correctAnswer: q.choices[choiceIndex] } : q
+                )
+              }
+              onAddChoice={() =>
+                updateQuestion(question.id, (q) =>
+                  q.type === 'multiple_choice' && q.choices.length < 6
+                    ? { ...q, choices: [...q.choices, ''] }
+                    : q
+                )
+              }
+              onRemoveChoice={(choiceIndex) =>
+                updateQuestion(question.id, (q) => {
+                  if (q.type !== 'multiple_choice' || q.choices.length <= 2) return q;
+                  const removed = q.choices[choiceIndex];
+                  const choices = q.choices.filter((_, i) => i !== choiceIndex);
+                  const correctAnswer = q.correctAnswer === removed ? choices[0] : q.correctAnswer;
+                  return { ...q, choices, correctAnswer };
+                })
+              }
+              onSelectTrueFalse={(value) =>
+                updateQuestion(question.id, (q) => (q.type === 'true_false' ? { ...q, correctAnswer: value } : q))
+              }
+              onChangeShortAnswer={(text) =>
+                updateQuestion(question.id, (q) => (q.type === 'short_answer' ? { ...q, correctAnswer: text } : q))
+              }
+              onDelete={() => handleDeleteQuestion(question.id)}
+            />
           ))}
         </View>
-      )}
 
-      <View style={styles.questionList}>
-        {currentQuiz.questions.map((question, index) => (
-          <QuestionCard
-            key={question.id}
-            index={index}
-            question={question}
-            onChangeQuestionText={(text) =>
-              updateQuestion(question.id, (q) => ({ ...q, question: text }))
-            }
-            onChangeChoiceText={(choiceIndex, text) =>
-              updateQuestion(question.id, (q) => {
-                if (q.type !== 'multiple_choice') return q;
-                const oldChoice = q.choices[choiceIndex];
-                const choices = q.choices.map((c, i) => (i === choiceIndex ? text : c));
-                const correctAnswer = q.correctAnswer === oldChoice ? text : q.correctAnswer;
-                return { ...q, choices, correctAnswer };
-              })
-            }
-            onSelectCorrectChoice={(choiceIndex) =>
-              updateQuestion(question.id, (q) =>
-                q.type === 'multiple_choice' ? { ...q, correctAnswer: q.choices[choiceIndex] } : q
-              )
-            }
-            onAddChoice={() =>
-              updateQuestion(question.id, (q) =>
-                q.type === 'multiple_choice' && q.choices.length < 6
-                  ? { ...q, choices: [...q.choices, ''] }
-                  : q
-              )
-            }
-            onRemoveChoice={(choiceIndex) =>
-              updateQuestion(question.id, (q) => {
-                if (q.type !== 'multiple_choice' || q.choices.length <= 2) return q;
-                const removed = q.choices[choiceIndex];
-                const choices = q.choices.filter((_, i) => i !== choiceIndex);
-                const correctAnswer = q.correctAnswer === removed ? choices[0] : q.correctAnswer;
-                return { ...q, choices, correctAnswer };
-              })
-            }
-            onSelectTrueFalse={(value) =>
-              updateQuestion(question.id, (q) => (q.type === 'true_false' ? { ...q, correctAnswer: value } : q))
-            }
-            onChangeShortAnswer={(text) =>
-              updateQuestion(question.id, (q) => (q.type === 'short_answer' ? { ...q, correctAnswer: text } : q))
-            }
-            onDelete={() => handleDeleteQuestion(question.id)}
-          />
-        ))}
-      </View>
+        {publishError ? (
+          <Text style={styles.error} accessibilityRole="alert">
+            {publishError}
+          </Text>
+        ) : null}
 
-      {publishError ? (
-        <Text style={styles.error} accessibilityRole="alert">
-          {publishError}
-        </Text>
-      ) : null}
-
-      <Pressable
-        style={[styles.button, isPublishing && styles.buttonDisabled]}
-        onPress={handlePublish}
-        disabled={isPublishing}
-        accessibilityRole="button"
-      >
-        {isPublishing ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.buttonText}>Publier le devoir</Text>
-        )}
-      </Pressable>
-    </ScrollView>
+        <Pressable
+          style={[styles.button, isPublishing && styles.buttonDisabled]}
+          onPress={handlePublish}
+          disabled={isPublishing}
+          accessibilityRole="button"
+        >
+          {isPublishing ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Publier le devoir</Text>
+          )}
+        </Pressable>
+      </ScrollView>
+    </Screen>
   );
 }
 

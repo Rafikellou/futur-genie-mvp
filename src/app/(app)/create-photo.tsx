@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { Screen } from '@/components/Screen';
 import { compressLessonImage, LessonImage } from '@/features/exercise-creation/lessonImage';
 import { generateQuizFromLesson } from '@/features/exercise-creation/generateQuiz';
 import { EXERCISE_TYPES, QuizType } from '@shared/domain/exercise';
@@ -152,80 +153,82 @@ export default function CreatePhotoScreen() {
   const isBusy = busySource !== null || isGenerating;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Pressable onPress={() => router.back()} accessibilityRole="button">
-        <Text style={styles.back}>‹ Retour</Text>
-      </Pressable>
+    <Screen>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Pressable onPress={() => router.back()} accessibilityRole="button">
+          <Text style={styles.back}>‹ Retour</Text>
+        </Pressable>
 
-      <Text style={styles.title}>Photo de la leçon</Text>
-      <Text style={styles.subtitle}>
-        {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {questionCount} questions
-      </Text>
+        <Text style={styles.title}>Photo de la leçon</Text>
+        <Text style={styles.subtitle}>
+          {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {questionCount} questions
+        </Text>
 
-      {photo ? (
-        <>
-          <Image
-            source={{ uri: photo.uri }}
-            style={[styles.preview, { aspectRatio: photo.width / photo.height }]}
-            resizeMode="contain"
-            accessibilityLabel="Photo de la leçon sélectionnée"
-          />
-          <View style={styles.row}>
+        {photo ? (
+          <>
+            <Image
+              source={{ uri: photo.uri }}
+              style={[styles.preview, { aspectRatio: photo.width / photo.height }]}
+              resizeMode="contain"
+              accessibilityLabel="Photo de la leçon sélectionnée"
+            />
+            <View style={styles.row}>
+              <PhotoButton
+                label="Reprendre"
+                onPress={() => handlePhotoSource('camera')}
+                loading={busySource === 'camera'}
+                disabled={isBusy}
+              />
+              <PhotoButton
+                label="Choisir une autre photo"
+                onPress={() => handlePhotoSource('library')}
+                loading={busySource === 'library'}
+                disabled={isBusy}
+              />
+            </View>
+            <Pressable
+              style={[styles.button, isGenerating && styles.buttonDisabled]}
+              onPress={handleContinue}
+              disabled={isGenerating}
+              accessibilityRole="button"
+              accessibilityLabel={isGenerating ? generationLabel : 'Continuer'}
+            >
+              {isGenerating ? (
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text style={styles.buttonText}>{generationLabel}</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>Continuer</Text>
+              )}
+            </Pressable>
+          </>
+        ) : (
+          <View style={styles.chooserColumn}>
+            <Text style={styles.body}>
+              Cadrez toute la leçon, avec un bon éclairage et un texte lisible.
+            </Text>
             <PhotoButton
-              label="Reprendre"
+              label="Prendre une photo"
               onPress={() => handlePhotoSource('camera')}
               loading={busySource === 'camera'}
               disabled={isBusy}
+              primary
             />
             <PhotoButton
-              label="Choisir une autre photo"
+              label="Choisir dans la bibliothèque"
               onPress={() => handlePhotoSource('library')}
               loading={busySource === 'library'}
               disabled={isBusy}
             />
           </View>
-          <Pressable
-            style={[styles.button, isGenerating && styles.buttonDisabled]}
-            onPress={handleContinue}
-            disabled={isGenerating}
-            accessibilityRole="button"
-            accessibilityLabel={isGenerating ? generationLabel : 'Continuer'}
-          >
-            {isGenerating ? (
-              <View style={styles.buttonContent}>
-                <ActivityIndicator color="#FFFFFF" />
-                <Text style={styles.buttonText}>{generationLabel}</Text>
-              </View>
-            ) : (
-              <Text style={styles.buttonText}>Continuer</Text>
-            )}
-          </Pressable>
-        </>
-      ) : (
-        <View style={styles.chooserColumn}>
-          <Text style={styles.body}>
-            Cadrez toute la leçon, avec un bon éclairage et un texte lisible.
-          </Text>
-          <PhotoButton
-            label="Prendre une photo"
-            onPress={() => handlePhotoSource('camera')}
-            loading={busySource === 'camera'}
-            disabled={isBusy}
-            primary
-          />
-          <PhotoButton
-            label="Choisir dans la bibliothèque"
-            onPress={() => handlePhotoSource('library')}
-            loading={busySource === 'library'}
-            disabled={isBusy}
-          />
-        </View>
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
+    </Screen>
   );
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Screen } from '@/components/Screen';
 import { OptionChips } from '@/features/exercise-creation/components/OptionChips';
 import { Grade, GRADES } from '@shared/domain/grade';
 import { Subject, SUBJECTS } from '@shared/domain/subject';
@@ -38,66 +39,68 @@ export default function CreateExerciseScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Pressable onPress={() => router.back()} accessibilityRole="button">
-        <Text style={styles.back}>‹ Retour</Text>
-      </Pressable>
-
-      <Text style={styles.title}>Créer un devoir</Text>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Niveau</Text>
-        <OptionChips
-          options={GRADES}
-          selected={grade}
-          onSelect={setGrade}
-          accessibilityLabelPrefix="Niveau"
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Matière</Text>
-        <OptionChips
-          options={SUBJECTS}
-          selected={subject}
-          onSelect={setSubject}
-          accessibilityLabelPrefix="Matière"
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Type d&apos;exercice</Text>
-        <OptionChips
-          options={EXERCISE_TYPES}
-          selected={quizType}
-          onSelect={setQuizType}
-          accessibilityLabelPrefix="Type d'exercice"
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Nombre de questions</Text>
-        <OptionChips
-          options={QUESTION_COUNT_CHOICES}
-          selected={questionCount}
-          onSelect={setQuestionCount}
-          accessibilityLabelPrefix="Nombre de questions"
-        />
-      </View>
-
-      <Pressable
-        style={[styles.button, !canContinue && styles.buttonDisabled]}
-        onPress={handleContinue}
-        disabled={!canContinue}
-        accessibilityRole="button"
+    <Screen>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.buttonText}>Continuer</Text>
-      </Pressable>
-    </ScrollView>
+        <Pressable onPress={() => router.back()} accessibilityRole="button">
+          <Text style={styles.back}>‹ Retour</Text>
+        </Pressable>
+
+        <Text style={styles.title}>Créer un devoir</Text>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Niveau</Text>
+          <OptionChips
+            options={GRADES}
+            selected={grade}
+            onSelect={setGrade}
+            accessibilityLabelPrefix="Niveau"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Matière</Text>
+          <OptionChips
+            options={SUBJECTS}
+            selected={subject}
+            onSelect={setSubject}
+            accessibilityLabelPrefix="Matière"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Type d&apos;exercice</Text>
+          <OptionChips
+            options={EXERCISE_TYPES}
+            selected={quizType}
+            onSelect={setQuizType}
+            accessibilityLabelPrefix="Type d'exercice"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Nombre de questions</Text>
+          <OptionChips
+            options={QUESTION_COUNT_CHOICES}
+            selected={questionCount}
+            onSelect={setQuestionCount}
+            accessibilityLabelPrefix="Nombre de questions"
+          />
+        </View>
+
+        <Pressable
+          style={[styles.button, !canContinue && styles.buttonDisabled]}
+          onPress={handleContinue}
+          disabled={!canContinue}
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonText}>Continuer</Text>
+        </Pressable>
+      </ScrollView>
+    </Screen>
   );
 }
 

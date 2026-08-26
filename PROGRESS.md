@@ -26,7 +26,7 @@
 | 7 | Publication et URL publique | ✅ Terminé et vérifié (iPhone + déploiement web sur Vercel) |
 | 8 | Expérience élève | ✅ Terminé et vérifié (mobile + laptop, déploiement Vercel) |
 | 9 | Suivi des réponses élèves | ✅ Terminé et vérifié (backend + iPhone, déploiement Vercel) |
-| 10 | Partage et historique | À venir |
+| 10 | Partage et historique | ✅ Terminé et vérifié sur appareil (iPhone) |
 | 11 | Durcissement et lancement | À venir |
 
 Détail du contenu de chaque milestone : voir la planification validée en
@@ -1053,3 +1053,78 @@ Non vérifié :
 dernière minute sont vérifiés de bout en bout (backend en conditions
 réelles + parcours sur appareil). Seul Android natif reste à tester,
 cohérent avec l'état des jalons précédents.
+
+## Milestone 10 — Partage et historique (détail)
+
+### Objectif
+
+Permettre à l'enseignante de partager un ou plusieurs devoirs publiés en
+une seule action (feuille de partage native ou copie du texte), sans
+répéter le geste devoir par devoir — cas d'usage réel signalé par
+l'utilisateur : créer 3 à 5 devoirs (un par matière) puis les partager
+tous en une fois.
+
+### Implémenté
+
+- `src/features/quiz-sharing/shareOrCopy.ts` (nouveau) : `shareText()` /
+  `copyText()`, seule implémentation du geste "partager ou copier" dans
+  l'app (`Share` natif de React Native, repli automatique sur la copie
+  presse-papiers sur web où `Share` n'a pas d'implémentation ;
+  `expo-clipboard`, seule nouvelle dépendance ajoutée à ce jalon).
+- `src/features/quiz-sharing/composeShareText.ts` (nouveau) : fonction pure
+  composant le message multi-devoirs — accueil ("Bonjour, veuillez trouver
+  ci-dessous les devoirs du jour :") puis chaque devoir numéroté
+  (titre + lien public). Testée unitairement (3 tests : un devoir,
+  plusieurs devoirs, sélection vide).
+- `src/app/(app)/quiz-published.tsx` : le lien affiché en texte
+  sélectionnable gagne deux actions réelles, "Partager" et "Copier le
+  lien" (confirmation visuelle "Lien copié ✓").
+- `src/app/(app)/my-quizzes.tsx` : mode sélection (plutôt qu'un écran
+  séparé — réutilise la liste et la requête déjà en place) — un bouton
+  "Sélectionner" fait apparaître des cases à cocher sur les devoirs
+  publiés uniquement (un brouillon n'a pas de lien public, donc jamais
+  sélectionnable), une barre en bas affiche le nombre sélectionné et ouvre
+  une modale de composition. Le texte généré y est **modifiable** avant
+  envoi (même principe que la revue d'un quiz généré par IA avant
+  publication, CLAUDE.md §3) puis partagé/copié via `shareOrCopy.ts`.
+- Aucun changement de base de données : `public_slug` existait déjà
+  (Milestone 7) ; seule la requête de `my-quizzes.tsx` a été étendue pour
+  le récupérer.
+
+### Bug corrigé au passage (hors périmètre du jalon, signalé par
+l'utilisateur en testant sur iPhone)
+
+Le bouton "‹ Retour", toujours le premier élément en haut à gauche de
+chaque écran, se retrouvait partiellement sous l'horloge du statut iOS —
+difficile à toucher. Cause : tous les écrans utilisent une navigation
+"maison" (`headerShown: false` partout, pas d'en-tête natif Expo Router)
+sans jamais tenir compte de la zone sûre (`SafeAreaView`/`useSafeAreaInsets`
+absents du projet jusqu'ici, alors que `react-native-safe-area-context`
+était déjà une dépendance).
+
+- `src/app/_layout.tsx` : ajout de `SafeAreaProvider` à la racine.
+- `src/components/Screen.tsx` (nouveau) : wrapper partagé
+  (`SafeAreaView edges={['top']}`), appliqué à tous les écrans ayant un
+  bouton en haut à gauche — Créer un devoir, Photo de la leçon, Devoir
+  (édition), Réponses des élèves, Profil, Mes devoirs — et à la nouvelle
+  modale de partage groupé (même problème avec son "‹ Annuler").
+
+### Vérifié
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npm test` : 10/10 (7 existants + 3 nouveaux pour
+  `composeShareText.test.ts`).
+- `npx expo export --platform web` : toujours 23 routes exportées sans
+  erreur (aucune nouvelle route à ce jalon).
+
+Vérifié sur appareil réel par l'utilisateur (iPhone) : partage d'un lien
+unique (feuille native + copie), partage groupé de plusieurs devoirs
+(sélection, modale, feuille native et copie du texte), et le bouton
+"‹ Retour" bien visible/cliquable sur tous les écrans concernés.
+
+Non vérifié :
+
+- Android natif spécifiquement (comme aux jalons précédents).
+- Web : le repli "copier" du partage (pas de feuille native sur web) n'a
+  été vérifié qu'en lecture de code, pas manuellement.

@@ -1,18 +1,20 @@
+import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 
 import { buildPublicQuizUrl } from '@/features/quiz-publishing/publicQuizUrl';
+import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
 
 // Result screen of Milestone 7's publish action: the teacher's confirmation
-// that the quiz is live, plus the public URL to give to students. Native
-// share sheet and "copy link" are Milestone 10 — the URL is shown as
-// selectable text in the meantime so it can still be copied manually.
+// that the quiz is live, plus the public URL to give to students, with the
+// native share sheet and "copy link" (Milestone 10).
 export default function QuizPublishedScreen() {
   const { title, slug, quizId } = useLocalSearchParams<{
     title?: string;
     slug?: string;
     quizId?: string;
   }>();
+  const [copyFeedback, setCopyFeedback] = useState(false);
 
   if (!slug) {
     return (
@@ -43,6 +45,29 @@ export default function QuizPublishedScreen() {
         <Text style={styles.linkText} selectable accessibilityLabel="Lien du devoir à partager">
           {url}
         </Text>
+      </View>
+
+      <View style={styles.shareRow}>
+        <Pressable
+          style={styles.shareButton}
+          onPress={() => shareText(url)}
+          accessibilityRole="button"
+        >
+          <Text style={styles.shareButtonText}>Partager</Text>
+        </Pressable>
+        <Pressable
+          style={styles.shareButton}
+          onPress={async () => {
+            const ok = await copyText(url);
+            if (ok) {
+              setCopyFeedback(true);
+              setTimeout(() => setCopyFeedback(false), 2000);
+            }
+          }}
+          accessibilityRole="button"
+        >
+          <Text style={styles.shareButtonText}>{copyFeedback ? 'Lien copié ✓' : 'Copier le lien'}</Text>
+        </Pressable>
       </View>
 
       {quizId && (
@@ -102,6 +127,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#208AEF',
+  },
+  shareRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  shareButton: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#208AEF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  shareButtonText: {
+    color: '#208AEF',
+    fontSize: 15,
+    fontWeight: '600',
   },
   button: {
     backgroundColor: '#208AEF',

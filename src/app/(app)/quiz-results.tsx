@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Screen } from '@/components/Screen';
 import { supabase } from '@shared/supabase/client';
 
 // Per-quiz results screen (Milestone 9, CLAUDE.md §5): who answered a given
@@ -50,7 +51,7 @@ export default function QuizResultsScreen() {
   }, [load]);
 
   return (
-    <View style={styles.container}>
+    <Screen style={styles.container}>
       <Pressable onPress={() => router.back()} accessibilityRole="button">
         <Text style={styles.back}>‹ Retour</Text>
       </Pressable>
@@ -85,7 +86,7 @@ export default function QuizResultsScreen() {
           renderItem={({ item }) => <SubmissionRowItem row={item} />}
         />
       )}
-    </View>
+    </Screen>
   );
 }
 

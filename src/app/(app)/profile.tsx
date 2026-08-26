@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
 
 export default function ProfileScreen() {
@@ -52,7 +53,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <Screen style={styles.container}>
       <Pressable onPress={() => router.back()} accessibilityRole="button">
         <Text style={styles.back}>‹ Retour</Text>
       </Pressable>
@@ -110,7 +111,7 @@ export default function ProfileScreen() {
           <Text style={styles.signOutButtonText}>Se déconnecter</Text>
         )}
       </Pressable>
-    </View>
+    </Screen>
   );
 }
 

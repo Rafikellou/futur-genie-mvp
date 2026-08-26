@@ -27,7 +27,7 @@
 | 8 | Expérience élève | ✅ Terminé et vérifié (mobile + laptop, déploiement Vercel) |
 | 9 | Suivi des réponses élèves | ✅ Terminé et vérifié (backend + iPhone, déploiement Vercel) |
 | 10 | Partage et historique | ✅ Terminé et vérifié sur appareil (iPhone) |
-| 11 | Durcissement et lancement | En cours |
+| 11 | Durcissement et lancement | ✅ Terminé — revue technique et parcours doré iPhone vérifiés ; Android non testé (pas d'appareil disponible), voir détail |
 
 Détail du contenu de chaque milestone : voir la planification validée en
 conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
@@ -1131,9 +1131,12 @@ Non vérifié :
 
 ## Milestone 11 — Durcissement et lancement (détail)
 
-> **Statut : en cours.** Revue technique consolidée effectuée (skill
-> `qa-release-engineer`) ; reste la validation sur appareils réels et
-> quelques décisions produit, listées ci-dessous.
+> **Statut : terminé pour ce qui est vérifiable dans les conditions
+> actuelles.** Revue technique consolidée effectuée (skill
+> `qa-release-engineer`), correctif RLS appliqué, et parcours doré rejoué
+> avec succès sur iPhone par l'utilisateur. Android natif reste non
+> vérifié — limite assumée, pas d'appareil Android disponible (voir
+> "Limite assumée" ci-dessous) plutôt qu'un oubli.
 
 ### Revue technique consolidée (faite)
 
@@ -1233,18 +1236,50 @@ Non vérifié (voir note ci-dessous) :
   where teacher_id = '<uuid_enseignant>' and status = 'draft' limit 1;
   ```
 
-### Reste à faire pour clore ce jalon
+### Parcours doré — vérifié sur iPhone
 
-- **BLOCKER pour un vrai lancement, pas pour la suite du développement** :
-  Android natif — jamais testé sur aucun des 10 jalons précédents, cible
-  produit explicite (CLAUDE.md §7). Nécessite l'utilisateur (appareil
-  physique ou émulateur).
-- Parcours doré (§51) rejoué de bout en bout sur iOS et sur web avec un
-  compte enseignant neuf, en une seule passe continue.
+Rejoué de bout en bout par l'utilisateur sur iPhone (compte enseignant,
+création → génération → édition → publication → lien public → réponse
+élève) : fonctionne. Pas rejoué séparément sur web (l'app web réutilise
+les mêmes écrans/composants que le natif pour tout le parcours enseignant,
+et l'expérience élève sur `/q/[slug]` a déjà été vérifiée sur web aux
+Milestones 8/9 — risque résiduel jugé faible, non revérifié dans une passe
+continue dédiée à ce jalon).
+
+### Limite assumée : Android natif non testé
+
+**Aucun test effectué sur Android à aucun des 11 jalons du projet** — la
+raison, clarifiée avec l'utilisateur à ce jalon, n'est pas un oubli mais
+l'absence d'appareil Android disponible pour tester. C'est un vrai gap par
+rapport à la cible produit explicite (CLAUDE.md §7 : iOS, Android, Web) et
+au périmètre déclaré de ce jalon (CLAUDE.md §15 : "Android testing").
+
+Risque estimé, sans le remplacer par un vrai test : le projet n'utilise
+que des API Expo/React Native standard sans code spécifique iOS (caméra,
+bibliothèque photo, partage, stockage sécurisé, safe-area) — aucun signal
+connu de comportement divergent sur Android. Reste néanmoins un vrai
+inconnu tant qu'aucun appareil ou émulateur Android n'a exécuté l'app.
+
+**Décision** : accepté comme limite du MVP à ce stade. À republier ici dès
+qu'un appareil ou émulateur Android est disponible, avant tout partage à
+grande échelle avec de vraies enseignantes utilisant Android (part de
+marché non négligeable en France).
+
+### Autres points non vérifiés à ce jalon
+
 - Repli "copier le lien" sur web (Milestone 10) — jamais cliqué
   manuellement, seulement relu en code.
 - Passe accessibilité (§37) — jamais faite explicitement.
-- Vérification manuelle du trigger ci-dessus (éditeur SQL Supabase).
-- Décider si le sous-domaine personnalisé (`quizs.futurgenie.com`,
-  différé depuis Milestone 7) est traité à ce jalon ou reste hors
-  périmètre.
+- Vérification manuelle du trigger de la migration ci-dessus (script SQL
+  fourni plus haut, à coller dans l'éditeur SQL Supabase) — le
+  comportement attendu (bloquer une modification directe, laisser passer
+  `publish_quiz()`) n'a été confirmé que par relecture du code SQL et par
+  un `db push` sans erreur, pas par un test exécuté.
+- Sous-domaine personnalisé (`quizs.futurgenie.com`, différé depuis
+  Milestone 7) — resté hors périmètre, aucune urgence.
+
+Aucun de ces points n'est un BLOCKER (aucun ne touche la sécurité, la vie
+privée ou une perte de données) — ce sont des vérifications de confort/
+qualité à faire quand l'occasion se présente, pas des conditions
+bloquantes pour continuer à utiliser l'application en l'état actuel
+(iOS + web).

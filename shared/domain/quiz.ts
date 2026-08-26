@@ -83,3 +83,27 @@ export const QuizDataSchema = z.object({
 });
 
 export type QuizData = z.infer<typeof QuizDataSchema>;
+
+// Public counterpart of QuestionSchema/QuizDataSchema: identical shape minus
+// `sourceEvidence`, which the publish RPC strips before a quiz becomes
+// readable by anonymous students (CLAUDE.md §23/§29). Built via `.omit()`/
+// `.extend()` on the schemas above rather than a hand-written duplicate, so
+// the two shapes can never silently drift apart.
+export const PublicQuestionSchema = z
+  .discriminatedUnion('type', [
+    MultipleChoiceQuestionSchema.omit({ sourceEvidence: true }),
+    TrueFalseQuestionSchema.omit({ sourceEvidence: true }),
+    ShortAnswerQuestionSchema.omit({ sourceEvidence: true }),
+  ])
+  .refine((q) => q.type !== 'multiple_choice' || q.choices.includes(q.correctAnswer), {
+    message: 'correctAnswer must be one of choices',
+    path: ['correctAnswer'],
+  });
+
+export type PublicQuestion = z.infer<typeof PublicQuestionSchema>;
+
+export const PublicQuizDataSchema = QuizDataSchema.extend({
+  questions: z.array(PublicQuestionSchema),
+});
+
+export type PublicQuizData = z.infer<typeof PublicQuizDataSchema>;

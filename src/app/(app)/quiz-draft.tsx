@@ -1,22 +1,34 @@
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
+import { supabase } from '@shared/supabase/client';
 import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS } from '@shared/domain/subject';
 import { EXERCISE_TYPES } from '@shared/domain/exercise';
 import { QuizDataSchema, type Question, type QuizData } from '@shared/domain/quiz';
 
-// Editable preview of the AI-generated draft (Milestone 6). The teacher
-// stays in control of the final content (CLAUDE.md §6): title, instructions,
-// question text, answers and multiple-choice options can all be edited, and
-// questions can be removed. Nothing is persisted yet — publishing (with its
-// own "save the final version" step) is Milestone 7, so the edited quiz
-// lives only in this screen's state, same as the read-only Milestone 5
-// version did.
+// Editable preview of the AI-generated draft (Milestone 6), now wired to
+// publishing (Milestone 7). The teacher stays in control of the final
+// content (CLAUDE.md §6): title, instructions, question text, answers and
+// multiple-choice options can all be edited, and questions can be removed.
+// The edited quiz lives only in this screen's state until "Publier" is
+// pressed — there is no separate "save draft" step (see PROGRESS.md,
+// Milestone 6 decision).
 export default function QuizDraftScreen() {
   const { quiz: quizParam } = useLocalSearchParams<{ quiz: string }>();
   const [quiz, setQuiz] = useState<QuizData | null>(() => parseQuiz(quizParam));
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   if (!quiz) {
     return (
@@ -68,7 +80,7 @@ export default function QuizDraftScreen() {
     ]);
   }
 
-  function handleContinue() {
+  async function handlePublish() {
     const issues = findQuizIssues(currentQuiz);
     if (issues.length > 0) {
       Alert.alert('Devoir incomplet', issues[0]);
@@ -78,10 +90,52 @@ export default function QuizDraftScreen() {
       Alert.alert('Devoir incomplet', 'Vérifiez les questions et les réponses avant de continuer.');
       return;
     }
-    // Publishing lands in the next milestone. Kept as an explicit
-    // acknowledgment rather than a dead/disabled button so the flow stays
-    // understandable (same approach as create-photo.tsx's Milestone 4 stage).
-    Alert.alert('Devoir prêt', 'La publication et le lien à partager arrivent au prochain jalon.');
+    if (isPublishing) return;
+
+    setPublishError(null);
+    setIsPublishing(true);
+    try {
+      // Draft persistence and publishing happen as one action (no separate
+      // "save draft" step exists in this app yet — see the file header).
+      // `teacher_id` is left for the database default (`auth.uid()`); RLS
+      // would reject any other value regardless (CLAUDE.md §48).
+      const { data: inserted, error: insertError } = await supabase
+        .from('quizzes')
+        .insert({
+          title: currentQuiz.title,
+          grade: currentQuiz.grade,
+          subject: currentQuiz.subject,
+          quiz_type: currentQuiz.quizType,
+          quiz_data: currentQuiz,
+        })
+        .select('id')
+        .single();
+
+      if (insertError || !inserted) {
+        setPublishError(PUBLISH_ERROR_MESSAGE);
+        return;
+      }
+
+      // Returns the row directly (not an array): the RPC function returns a
+      // single `quizzes` row, not a set.
+      const { data: published, error: rpcError } = await supabase.rpc('publish_quiz', {
+        p_quiz_id: inserted.id,
+      });
+
+      if (rpcError || !published?.public_slug) {
+        setPublishError(PUBLISH_ERROR_MESSAGE);
+        return;
+      }
+
+      router.replace({
+        pathname: '/quiz-published',
+        params: { title: currentQuiz.title, slug: published.public_slug },
+      });
+    } catch {
+      setPublishError(PUBLISH_ERROR_MESSAGE);
+    } finally {
+      setIsPublishing(false);
+    }
   }
 
   return (
@@ -175,12 +229,33 @@ export default function QuizDraftScreen() {
         ))}
       </View>
 
-      <Pressable style={styles.button} onPress={handleContinue} accessibilityRole="button">
-        <Text style={styles.buttonText}>Continuer</Text>
+      {publishError ? (
+        <Text style={styles.error} accessibilityRole="alert">
+          {publishError}
+        </Text>
+      ) : null}
+
+      <Pressable
+        style={[styles.button, isPublishing && styles.buttonDisabled]}
+        onPress={handlePublish}
+        disabled={isPublishing}
+        accessibilityRole="button"
+      >
+        {isPublishing ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buttonText}>Publier le devoir</Text>
+        )}
       </Pressable>
     </ScrollView>
   );
 }
+
+// No technical detail (network vs. RLS vs. RPC failure) is surfaced — a
+// stable, actionable French message either way (CLAUDE.md §34/§39). The
+// edited quiz stays in memory, so retrying costs nothing.
+const PUBLISH_ERROR_MESSAGE =
+  "Impossible de publier ce devoir pour le moment. Vérifiez votre connexion et réessayez.";
 
 function parseQuiz(raw: string | undefined): QuizData | null {
   if (!raw) return null;
@@ -510,12 +585,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
+  error: {
+    color: '#B42318',
+    fontSize: 14,
+    marginBottom: 8,
+  },
   button: {
     backgroundColor: '#208AEF',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonText: {
     color: '#FFFFFF',

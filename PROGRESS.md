@@ -23,7 +23,7 @@
 | 4 | Photo de leçon | ✅ Terminé — vérifié sur appareil (iPhone) |
 | 5 | Génération IA | ✅ Terminé — vérifié sur appareil (iPhone) ; prompt affiné après retour utilisateur |
 | 6 | Revue et édition | ✅ Terminé — non encore vérifié sur appareil |
-| 7 | Publication et URL publique | À venir |
+| 7 | Publication et URL publique | ✅ Terminé — backend vérifié en conditions réelles, non encore vérifié sur appareil |
 | 8 | Expérience élève | À venir |
 | 9 | Partage et historique | À venir |
 | 10 | Durcissement et lancement | À venir |
@@ -436,3 +436,136 @@ par niveau **et** par matière (pas seulement une phrase générique dans le
 prompt système), à concevoir avant d'être incorporé — forme exacte encore
 à définir (contenu enrichi du prompt, few-shot, grille de difficulté
 structurée, etc.).
+
+## Milestone 7 — Publication et URL publique (détail)
+
+Implémenté :
+
+- Migration `20260825212040_create_quizzes.sql` : table `public.quizzes`
+  (`teacher_id` défaut `auth.uid()`, `status` draft/published/archived,
+  `quiz_data` = `QuizData` complet incluant `sourceEvidence`, `public_slug`
+  unique nullable). RLS : un enseignant ne peut lire/créer/modifier/
+  supprimer que ses propres lignes ; aucune policy publique sur cette table.
+  Fonction `generate_quiz_slug()` (10 caractères, alphabet sans caractères
+  ambigus 0/O/1/l/I). RPC `publish_quiz(p_quiz_id uuid)` : vérifie la
+  propriété, génère le slug au premier publish (idempotent ensuite),
+  calcule `public_quiz_data` = `quiz_data` avec `sourceEvidence` retiré de
+  chaque question (jsonb, sans dépendance applicative), passe `status` à
+  `published`. S'exécute en tant qu'appelant (pas de `security definer`) —
+  la RLS protège déjà la ligne lue/modifiée. Vue `public.public_quizzes`
+  (`security_invoker = false`, comportement par défaut d'une vue) exposant
+  uniquement les colonnes nécessaires des quizzes `status = 'published'` ;
+  lecture accordée aux rôles `anon` et `authenticated`.
+- `shared/domain/quiz.ts` : `PublicQuestionSchema` / `PublicQuizDataSchema`,
+  dérivés de `QuestionSchema`/`QuizDataSchema` par `.omit()`/`.extend()`
+  (pas de duplication de forme) — la seule différence est l'absence de
+  `sourceEvidence`, pour valider côté client exactement ce que
+  `public_quiz_data` peut contenir.
+- `src/app/(app)/quiz-draft.tsx` : le bouton final ("Continuer") devient
+  "Publier le devoir" et déclenche une vraie action : insertion du
+  brouillon édité dans `quizzes` (`teacher_id` omis, valeur par défaut
+  côté base) puis appel RPC `publish_quiz`. État de chargement
+  ("Publication en cours…", bouton désactivé, soumissions multiples
+  bloquées), message d'erreur français générique en cas d'échec réseau/RLS/
+  RPC, sans perte du brouillon édité (l'écran reste utilisable, "réessayer"
+  ne perd aucune saisie).
+- `src/app/(app)/quiz-published.tsx` (nouveau) : écran de confirmation
+  après publication, affiche le titre et l'URL publique complète en texte
+  sélectionnable. Pas de bouton "Partager" ni "Copier le lien" — action
+  volontairement limitée au périmètre du jalon (partage natif et
+  copier-lien sont le Milestone 9, CLAUDE.md §60).
+- `src/app/q/[slug].tsx` (nouveau) : route publique, volontairement hors
+  des groupes `(app)`/`(auth)` de `src/app/_layout.tsx` — ni guard de
+  session ne s'applique, confirmé par l'export web (`/q/[slug]` bien
+  généré comme route statique indépendante). Charge le quiz via
+  `public_quizzes` par `public_slug`, états chargement / introuvable /
+  erreur (avec réessayer) / prêt. Affiche titre, consigne et questions en
+  lecture seule (options de QCM listées sans indiquer la bonne réponse,
+  Vrai/Faux affiché sans révéler la réponse) ; aucune saisie ni soumission
+  — message "Le remplissage et l'envoi des réponses arrivent bientôt"
+  (Milestone 8). `sourceEvidence` absent par construction (jamais présent
+  dans `public_quiz_data`).
+- `src/features/quiz-publishing/publicQuizUrl.ts` (nouveau) : construit
+  l'URL publique complète. Sur web, utilise `window.location.origin`
+  (toujours correct quel que soit l'endroit où l'app est servie). Sur
+  natif, utilise `EXPO_PUBLIC_APP_URL` si défini (nouvelle variable
+  optionnelle, ajoutée à `.env.example`), sinon retombe sur le chemin
+  relatif seul (`/q/<slug>`).
+
+Décision notable :
+
+- **Aucun domaine de production n'est encore déployé** (Milestone 10). Sur
+  natif, sans `EXPO_PUBLIC_APP_URL` configuré, l'écran de publication
+  affiche uniquement `/q/<slug>` — pas une URL complète cliquable/
+  partageable. C'est un point à régler avant d'utiliser ce jalon avec de
+  vrais élèves ; le partage natif du Milestone 9 rendra ce point plus
+  visible et méritera d'être tranché à ce moment-là (domaine réel ou URL de
+  déploiement web provisoire).
+- Persistance et publication se font en une seule action (pas d'étape
+  "enregistrer le brouillon" séparée), conformément à la décision prise au
+  Milestone 6. Limite connue et acceptée : si l'insertion réussit mais
+  l'appel RPC échoue (ex. coupure réseau entre les deux), une ligne
+  `draft` orpheline reste en base, invisible tant que l'historique
+  (Milestone 9) n'existe pas ; retenter "Publier" recrée une nouvelle ligne
+  plutôt que de reprendre celle-ci. Sans coût ni risque de sécurité, à
+  garder en tête si un nettoyage des brouillons orphelins devient utile
+  plus tard.
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK.
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : les 19 routes s'exportent sans erreur,
+  dont `/q/[slug]`, `/quiz-published`.
+- **Backend vérifié en conditions réelles contre la base distante** (rôle
+  `authenticated` simulé via `request.jwt.claims`, puis appel HTTP réel à
+  l'API REST avec la clé anonyme de l'app) :
+  - insertion d'un brouillon en tant qu'enseignant, `teacher_id` bien
+    résolu par défaut à `auth.uid()` sans que le client ne l'envoie ;
+  - `publish_quiz` génère un slug, bascule `status`, calcule
+    `public_quiz_data` sans `sourceEvidence` (confirmé sur la ligne
+    complète : présent dans `quiz_data`, absent dans `public_quiz_data`) ;
+  - lecture anonyme via `GET /rest/v1/public_quizzes?public_slug=eq....`
+    avec la clé anon de l'app : renvoie le quiz publié sans
+    `sourceEvidence` ;
+  - `GET /rest/v1/quizzes` avec la même clé anon : renvoie `[]` (RLS bloque
+    toute lecture de la table privée) ;
+  - un second enseignant (autre `auth.uid()` simulé) obtient
+    `quiz_not_found` en appelant `publish_quiz` sur le quiz du premier
+    (RLS masque la ligne avant même la vérification explicite de
+    propriété dans la fonction) ;
+  - toutes les lignes de test supprimées après vérification.
+
+Vérifié sur appareil réel (iPhone) par l'utilisateur : parcours complet
+créer → générer → éditer → publier fonctionne.
+
+Non vérifié :
+
+- Android.
+- Ouverture du lien public depuis un vrai navigateur (aucun site web n'était
+  encore déployé au moment du test — voir déploiement web ci-dessous).
+
+### Déploiement web (préparé, pas encore fait)
+
+Aucun domaine de production n'était déployé jusqu'ici (Milestone 10). En
+préparation d'un déploiement Vercel sur un sous-domaine dédié
+(`quizs.futurgenie.com`, choix de l'utilisateur) :
+
+- `vercel.json` (nouveau) : commande de build `npm run build:web` (= `expo
+  export --platform web`), dossier de sortie `dist`, `cleanUrls` activé
+  (sert `create.html` sur `/create`, etc.), et une règle de réécriture
+  `/q/:slug` → `/q/[slug].html` — nécessaire car l'export statique d'une
+  route dynamique Expo Router produit un seul fichier littéral
+  (`[slug].html`), pas une page par slug ; c'est l'approche documentée par
+  Expo Router pour un hébergement statique de routes dynamiques.
+- `package.json` : script `build:web` ajouté.
+
+Reste à faire par l'utilisateur (compte Vercel/DNS, hors de portée de cet
+environnement) : créer le projet Vercel à partir du dépôt GitHub, y définir
+`EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (valeurs
+publiques, sans risque), ajouter le sous-domaine personnalisé et son
+enregistrement DNS CNAME chez le registrar. Une fois en ligne, définir aussi
+`EXPO_PUBLIC_APP_URL=https://quizs.futurgenie.com` dans `.env` (app mobile)
+pour que l'écran de publication affiche une URL complète sur iPhone/Android
+(actuellement uniquement `/q/<slug>`, sans domaine — limite notée plus
+haut).

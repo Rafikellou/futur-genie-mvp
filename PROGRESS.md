@@ -25,7 +25,7 @@
 | 6 | Revue et édition | ✅ Terminé — non encore vérifié sur appareil |
 | 7 | Publication et URL publique | ✅ Terminé et vérifié (iPhone + déploiement web sur Vercel) |
 | 8 | Expérience élève | ✅ Terminé et vérifié (mobile + laptop, déploiement Vercel) |
-| 9 | Suivi des réponses élèves | ✅ Terminé — vérifié contre la base distante ; non encore vérifié sur appareil |
+| 9 | Suivi des réponses élèves | ✅ Terminé et vérifié (backend + iPhone, déploiement Vercel) |
 | 10 | Partage et historique | À venir |
 | 11 | Durcissement et lancement | À venir |
 
@@ -688,7 +688,7 @@ Mise à jour ultérieure (planification du Milestone 9) :
 
 ## Milestone 9 — Suivi des réponses élèves (détail)
 
-> **Statut : implémenté et vérifié contre la base distante.** Cette section
+> **Statut : finalisé et vérifié (backend + appareil réel).** Cette section
 > documente d'abord l'architecture validée en conversation avant le code
 > (plan initial, inchangé ci-dessous), puis le résultat de l'implémentation
 > et sa vérification, à la suite (voir "Implémenté" plus bas).
@@ -1041,8 +1041,15 @@ Vérifié :
 - `npm test` : 7/7 (suite `grading.test.ts`, non affectée par ce
   changement).
 
+Vérifié sur appareil réel par l'utilisateur (après redéploiement Vercel) :
+Commencer → Valider → Recommencer → Valider à nouveau → une seule ligne
+pour ce prénom dans `quiz-results`, comme attendu.
+
 Non vérifié :
 
-- Parcours manuel sur appareil de la nouvelle protection elle-même
-  (Commencer → Valider → Recommencer → Valider à nouveau → une seule ligne
-  dans `quiz-results`). À confirmer par l'utilisateur.
+- Android natif spécifiquement (comme aux jalons précédents).
+
+**Milestone 9 finalisé** : tous les écrans, la base et cette protection de
+dernière minute sont vérifiés de bout en bout (backend en conditions
+réelles + parcours sur appareil). Seul Android natif reste à tester,
+cohérent avec l'état des jalons précédents.

@@ -129,7 +129,7 @@ export default function QuizDraftScreen() {
 
       router.replace({
         pathname: '/quiz-published',
-        params: { title: currentQuiz.title, slug: published.public_slug },
+        params: { title: currentQuiz.title, slug: published.public_slug, quizId: published.id },
       });
     } catch {
       setPublishError(PUBLISH_ERROR_MESSAGE);

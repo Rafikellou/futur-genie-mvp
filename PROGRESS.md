@@ -25,8 +25,9 @@
 | 6 | Revue et édition | ✅ Terminé — non encore vérifié sur appareil |
 | 7 | Publication et URL publique | ✅ Terminé et vérifié (iPhone + déploiement web sur Vercel) |
 | 8 | Expérience élève | ✅ Terminé et vérifié (mobile + laptop, déploiement Vercel) |
-| 9 | Partage et historique | À venir |
-| 10 | Durcissement et lancement | À venir |
+| 9 | Suivi des réponses élèves | ✅ Terminé — vérifié contre la base distante ; non encore vérifié sur appareil |
+| 10 | Partage et historique | À venir |
+| 11 | Durcissement et lancement | À venir |
 
 Détail du contenu de chaque milestone : voir la planification validée en
 conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
@@ -59,6 +60,15 @@ conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
 - **Tests** : Jest + RNTL pour le domaine/schémas, Deno test pour la
   logique d'Edge Function, parcours doré vérifié manuellement à chaque
   milestone.
+- **Soumissions élèves (Milestone 9, planifié — voir section dédiée)** :
+  table `submissions` + RPC `submit_quiz_answers` (pas d'Edge Function,
+  aucun secret nécessaire, même logique que `publish_quiz`) ; le score est
+  toujours recalculé côté serveur à partir de `public_quiz_data`, jamais
+  reçu du client tel quel ; aucune policy INSERT sur la table (écriture
+  uniquement via la fonction, `security definer`) ; lecture strictement
+  scopée à l'enseignante propriétaire via RLS. Le prénom élève est une
+  exception explicite et bornée à la règle « aucune donnée élève » du
+  CLAUDE.md (§32 mis à jour en conséquence).
 
 ## Configuration d'environnement
 
@@ -665,3 +675,305 @@ Non vérifié :
 - Android natif spécifiquement (l'écran est universel et le parcours web
   a été vérifié ; pas de test isolé sur un appareil Android natif à ce
   jalon).
+
+Mise à jour ultérieure (planification du Milestone 9) :
+
+- La décision « aucune réponse n'est jamais stockée » ci-dessus est
+  **consciemment révisée** au Milestone 9, à la demande explicite de
+  l'utilisateur (voir section dédiée ci-dessous). La correction
+  100 % côté client de cet écran (`grading.ts`, affichage immédiat du
+  score à l'élève) reste inchangée ; ce qui change, c'est l'ajout d'un
+  enregistrement en tâche de fond de chaque soumission pour que
+  l'enseignante puisse la consulter ensuite.
+
+## Milestone 9 — Suivi des réponses élèves (détail)
+
+> **Statut : implémenté et vérifié contre la base distante.** Cette section
+> documente d'abord l'architecture validée en conversation avant le code
+> (plan initial, inchangé ci-dessous), puis le résultat de l'implémentation
+> et sa vérification, à la suite (voir "Implémenté" plus bas).
+
+### Objectif
+
+Une enseignante peut voir, pour un devoir publié donné, la liste des
+élèves qui ont répondu (prénom + score), triée pour repérer en un clin
+d'œil qui est en difficulté. Toujours aucun compte/login élève.
+
+### Pourquoi ce séquencement (et pas à la toute fin du plan)
+
+Décision produit prise avec l'utilisateur (skill `product-architect`) : ce
+jalon s'insère entre le Milestone 8 (Expérience élève) et l'ancien
+Milestone 9 (désormais Milestone 10, Partage et historique), plutôt
+qu'après le durcissement final. Raisons principales :
+
+- Plus proche de la promesse centrale du produit (voir si un enfant est en
+  difficulté) que le partage natif/l'historique, qui restent triviaux en
+  comparaison.
+- L'écran d'historique prévu au jalon suivant a de toute façon besoin
+  d'une liste des devoirs de l'enseignante — autant poser ce socle ici.
+- Le durcissement (RLS/vie privée, désormais Milestone 11) ne doit se
+  faire qu'une fois, sur l'état final du schéma — pas une fois avant, une
+  fois après un ajout tardif.
+
+CLAUDE.md a été mis à jour en conséquence : §5 (portée MVP), §6
+(clarification de l'exclusion « suivi de progression long terme »), §15
+(renumérotation des jalons 9-11), §16 (type `Submission`), §29 (soumissions
+des autres élèves jamais exposées), §32 (exception bornée pour le prénom
+élève), §48 (score toujours recalculé serveur), §65 (critère de succès
+MVP).
+
+### Schéma de base de données (migration à créer)
+
+```sql
+create table public.submissions (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid not null references public.quizzes (id) on delete cascade,
+  student_name text not null check (char_length(btrim(student_name)) between 1 and 50),
+  answers jsonb not null,
+  correct_count int not null,
+  gradable_count int not null,
+  created_at timestamptz not null default now()
+);
+
+create index submissions_quiz_id_idx on public.submissions (quiz_id);
+
+alter table public.submissions enable row level security;
+```
+
+`answers` reprend la forme du type `AnswerMap` déjà défini côté client
+(`src/features/quiz-taking/grading.ts`) — à déplacer vers `shared/domain`
+au moment de l'implémentation, pour rester la définition unique
+(CLAUDE.md §46).
+
+### RLS
+
+```sql
+create policy "Teachers can read submissions to their own quizzes"
+  on public.submissions for select
+  to authenticated
+  using (exists (
+    select 1 from public.quizzes q
+    where q.id = submissions.quiz_id and q.teacher_id = auth.uid()
+  ));
+
+create policy "Teachers can delete submissions to their own quizzes"
+  on public.submissions for delete
+  to authenticated
+  using (exists (
+    select 1 from public.quizzes q
+    where q.id = submissions.quiz_id and q.teacher_id = auth.uid()
+  ));
+
+-- Volontairement aucune policy INSERT/UPDATE : la seule écriture possible
+-- passe par la fonction `submit_quiz_answers` ci-dessous (`security
+-- definer`). Ouvrir une policy INSERT à `anon` permettrait de poster un
+-- score arbitraire directement via l'API REST, en contournant tout calcul.
+```
+
+### RPC de soumission
+
+```sql
+create function public.submit_quiz_answers(
+  p_slug text,
+  p_student_name text,
+  p_answers jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_quiz_id uuid;
+  v_quiz_data jsonb;
+  v_name text := btrim(p_student_name);
+  v_correct int := 0;
+  v_gradable int := 0;
+  v_question jsonb;
+begin
+  if char_length(v_name) = 0 or char_length(v_name) > 50 then
+    raise exception 'invalid_request' using errcode = 'P0001';
+  end if;
+
+  select id, public_quiz_data into v_quiz_id, v_quiz_data
+  from public.quizzes
+  where public_slug = p_slug and status = 'published';
+
+  if not found then
+    raise exception 'quiz_not_found' using errcode = 'P0002';
+  end if;
+
+  for v_question in select * from jsonb_array_elements(v_quiz_data -> 'questions')
+  loop
+    if v_question ->> 'type' in ('multiple_choice', 'true_false') then
+      v_gradable := v_gradable + 1;
+      if (p_answers -> (v_question ->> 'id') -> 'value') = (v_question -> 'correctAnswer')
+      then
+        v_correct := v_correct + 1;
+      end if;
+    end if;
+  end loop;
+
+  insert into public.submissions (quiz_id, student_name, answers, correct_count, gradable_count)
+  values (v_quiz_id, v_name, p_answers, v_correct, v_gradable);
+end;
+$$;
+
+revoke all on function public.submit_quiz_answers(text, text, jsonb) from public;
+grant execute on function public.submit_quiz_answers(text, text, jsonb) to anon, authenticated;
+```
+
+Points clés :
+
+- Le score n'est **jamais** reçu du client tel quel : recalculé ici à
+  partir de `public_quiz_data`, seule source de vérité pour la bonne
+  réponse.
+- Seul un quiz `status = 'published'` peut recevoir une soumission
+  (recherche par `public_slug`, jamais par `quiz_id` brut) — un brouillon
+  ne peut jamais en recevoir.
+- `security definer` avec `search_path` explicite (évite le détournement
+  de search_path, bonne pratique standard Postgres pour ce type de
+  fonction).
+- Pas d'Edge Function : aucun secret impliqué, même raisonnement que
+  `publish_quiz` (Milestone 7).
+- Ne renvoie rien : l'élève voit déjà sa propre correction instantanée,
+  calculée côté client comme au Milestone 8 (inchangé) ; l'appel RPC est
+  un envoi en tâche de fond, silencieux en cas d'échec réseau (ne doit
+  jamais bloquer ni inquiéter l'élève).
+
+### Écrans à créer/modifier
+
+- `src/app/q/[slug].tsx` : ajout d'un champ prénom (requis) avant de
+  commencer le devoir ; appel du nouveau `submitSubmission.ts` en tâche de
+  fond au moment de « Valider mes réponses » (logique de
+  correction/affichage du Milestone 8 inchangée).
+- `src/features/quiz-taking/submitSubmission.ts` (nouveau) : appel
+  `supabase.rpc('submit_quiz_answers', …)`, best-effort.
+- `shared/domain/` : `StudentAnswer`/`AnswerMap` déplacés depuis
+  `grading.ts` vers un emplacement partagé.
+- `src/app/(app)/quiz-published.tsx` : lien « Voir les réponses des
+  élèves ».
+- Nouvelle route (convention plate déjà en place) : `quiz-results.tsx` —
+  liste des soumissions d'un devoir (prénom + score + date), triée pour
+  faire remonter les scores faibles, état vide « Aucune réponse pour
+  l'instant ».
+- Nouvelle route minimale « Mes devoirs » (id/titre/statut/date, juste de
+  quoi naviguer) : socle réutilisé et enrichi par le Milestone 10.
+
+### Vie privée — décision explicite
+
+CLAUDE.md §32 est mis à jour avec une exception bornée : un prénom libre
+(pas de compte, pas de vérification, jamais lié entre plusieurs devoirs)
+est accepté uniquement pour que l'enseignante distingue ses élèves sur
+l'écran de résultats. Toute extension (nom de famille, email, suivi
+inter-devoirs) nécessite une nouvelle décision explicite.
+
+### Étapes d'implémentation (à suivre dans cet ordre)
+
+1. Migration : table + RLS + fonction RPC + grants.
+2. Déplacer `StudentAnswer`/`AnswerMap` vers `shared/domain`.
+3. `submitSubmission.ts`.
+4. Champ prénom + appel de soumission dans `q/[slug].tsx`.
+5. Écran minimal « Mes devoirs ».
+6. Écran `quiz-results.tsx`.
+7. Lien depuis `quiz-published.tsx`.
+8. Mettre à jour cette section de PROGRESS.md avec le statut « Implémenté »
+   et les résultats de vérification, comme pour chaque jalon précédent.
+
+### Stratégie de test prévue
+
+- RLS : vérification manuelle façon Milestone 7 (JWT simulé enseignante
+  A/B — A ne voit jamais les soumissions du quiz de B ; `anon` ne peut pas
+  lire la table directement ; `anon` peut appeler la RPC sur un quiz
+  publié, pas sur un brouillon).
+- RPC : appels de vérification du recalcul de score (toutes bonnes, toutes
+  fausses, quiz 100 % réponses courtes → `gradable_count = 0`).
+- Client : test que « Commencer » reste bloqué tant que le prénom est
+  vide.
+- Parcours doré complet, avec la nouvelle étape : l'enseignante voit
+  apparaître la soumission après qu'un élève ait répondu.
+
+### Implémenté
+
+Les 8 étapes du plan ci-dessus ont été suivies dans l'ordre :
+
+- Migration `20260826090000_create_submissions.sql` : table `submissions`,
+  index sur `quiz_id`, RLS (`select`/`delete` réservés à l'enseignante
+  propriétaire via une sous-requête sur `quizzes.teacher_id`, aucune policy
+  `insert`/`update`), fonction `submit_quiz_answers` (`security definer`,
+  recherche par `public_slug` + `status = 'published'` uniquement, recalcule
+  `correct_count`/`gradable_count` à partir de `public_quiz_data`).
+  Poussée sur le projet distant (`npx supabase db push`), exactement comme
+  écrite dans le plan (aucun ajustement nécessaire).
+- `shared/domain/submission.ts` (nouveau) : `StudentAnswer`/`AnswerMap`
+  déplacés depuis `src/features/quiz-taking/grading.ts` (qui les
+  ré-exporte pour ne pas casser ses propres tests) ; type `Submission`
+  ajouté, miroir TypeScript de la table.
+- `src/features/quiz-taking/submitSubmission.ts` (nouveau) : appelle
+  `supabase.rpc('submit_quiz_answers', …)`, erreurs avalées silencieusement
+  (best-effort, CLAUDE.md §39 — ne doit jamais interrompre la correction
+  déjà affichée à l'élève).
+- `src/app/q/[slug].tsx` : un écran « Ton prénom » précède désormais le
+  devoir (bouton « Commencer » désactivé tant que le champ est vide,
+  jamais de compte/mot de passe). La soumission est envoyée en tâche de
+  fond au moment de « Valider mes réponses », sans changer la correction
+  100 % client déjà en place (Milestone 8).
+- `src/app/(app)/my-quizzes.tsx` (nouveau, route « Mes devoirs ») : liste
+  des devoirs de l'enseignante (titre, statut, date), triés du plus récent
+  au plus ancien. Seules les lignes publiées sont cliquables (mènent à
+  `quiz-results`) ; un brouillon s'affiche sans action, cette liste
+  minimale ne sachant pas encore reprendre l'édition d'un brouillon
+  (Milestone 10). Lien ajouté sur l'accueil.
+- `src/app/(app)/quiz-results.tsx` (nouveau) : liste des soumissions d'un
+  devoir (prénom, score, date), triée pour faire remonter les scores
+  faibles en premier (les soumissions 100 % réponse-courte, sans score
+  chiffrable, sont affichées à part — sous un tiret — plutôt que classées
+  arbitrairement comme un 0 ou un score parfait) ; état vide « Aucune
+  réponse pour l'instant ».
+- `src/app/(app)/quiz-published.tsx` : nouveau bouton secondaire « Voir les
+  réponses des élèves » vers `quiz-results` (le `quizId` de la ligne
+  publiée est maintenant transmis depuis `quiz-draft.tsx`, en plus du
+  titre et du slug déjà transmis au Milestone 7).
+
+Vérifié :
+
+- TypeScript (`npx tsc --noEmit`) : OK (a nécessité de relancer une fois
+  `npx expo start` brièvement pour régénérer les types de routes d'Expo
+  Router — `npx expo export` seul ne les régénère pas, contrairement aux
+  jalons précédents où ce n'était jamais apparu nécessaire).
+- Lint (`npm run lint`) : OK.
+- `npx expo export --platform web` : 23 routes exportées sans erreur, dont
+  les deux nouvelles (`/my-quizzes`, `/quiz-results`).
+- `npm test` : 7/7 (suite existante de `grading.test.ts`, inchangée —
+  toujours verte après le déplacement de `AnswerMap`/`StudentAnswer`).
+- **Backend vérifié en conditions réelles contre la base distante**, migration
+  déjà poussée en production (même méthode qu'au Milestone 7 : rôle simulé
+  via `request.jwt.claims`, plus un appel HTTP réel avec la clé anonyme de
+  l'app) :
+  - devoir de test créé et publié comme la vraie enseignante du projet ;
+  - `submit_quiz_answers` appelée en tant qu'`anon` (SQL *et* HTTP réel via
+    `POST /rest/v1/rpc/submit_quiz_answers` avec la clé anon de l'app,
+    HTTP 204) : une soumission « tout juste » donne bien 2/2, une
+    soumission « tout faux » donne bien 0/2, la réponse courte n'est
+    jamais comptée dans `gradable_count` — le score vient uniquement du
+    recalcul serveur, jamais du client (aucun paramètre de score n'existe
+    même dans la signature de la fonction) ;
+  - l'enseignante propriétaire (JWT simulé avec son vrai `auth.uid()`) lit
+    les deux soumissions ;
+  - une autre enseignante simulée (UUID quelconque) obtient 0 ligne sur ce
+    même quiz ;
+  - `anon` obtient 0 ligne en lisant la table directement, aussi bien en
+    SQL qu'en HTTP réel (`GET /rest/v1/submissions` → `[]`) ;
+  - `anon` appelant la fonction sur un slug inexistant obtient l'erreur
+    `quiz_not_found` (P0002) — un brouillon, qui n'a jamais de
+    `public_slug`, est structurellement inatteignable par cette RPC ;
+  - toutes les lignes de test supprimées après vérification (suppression du
+    devoir de test, cascade sur ses soumissions — confirmé à 0 restante).
+
+Non vérifié :
+
+- Parcours réel sur un appareil (mobile/web) : champ prénom → réponse au
+  devoir → soumission visible dans « Mes devoirs » → `quiz-results` de
+  l'enseignante. Le backend est vérifié directement (ci-dessus) mais pas
+  encore ce parcours de bout en bout à travers l'interface.
+- Android natif spécifiquement (comme aux jalons précédents).

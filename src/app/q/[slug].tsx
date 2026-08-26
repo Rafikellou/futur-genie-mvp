@@ -21,6 +21,7 @@ import {
   gradeQuiz,
   type AnswerMap,
 } from '@/features/quiz-taking/grading';
+import { submitSubmission } from '@/features/quiz-taking/submitSubmission';
 
 type LoadState =
   | { status: 'loading' }
@@ -29,13 +30,17 @@ type LoadState =
   | { status: 'ready'; quiz: PublicQuizData };
 
 // Public quiz: an anonymous student loads it, answers, and gets an
-// immediate correction (Milestone 8). No account, no submission stored
-// anywhere (CLAUDE.md §32/§36) — correction happens entirely in this
-// component against the answers already present in `public_quiz_data`
-// (see src/features/quiz-taking/grading.ts).
+// immediate correction (Milestone 8). No account — a first name is the only
+// thing asked, purely so the teacher can tell students apart on the results
+// screen (CLAUDE.md §32 exception). Correction itself is still entirely
+// client-side against `public_quiz_data` (src/features/quiz-taking/grading.ts);
+// the submission is separately recorded in the background for the teacher
+// (Milestone 9, src/features/quiz-taking/submitSubmission.ts).
 export default function PublicQuizScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [studentName, setStudentName] = useState('');
+  const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -66,6 +71,7 @@ export default function PublicQuizScreen() {
       setState({ status: 'ready', quiz: parsed.data });
       setAnswers(createEmptyAnswers(parsed.data.questions));
       setSubmitted(false);
+      setStarted(false);
     } catch {
       setState({ status: 'error' });
     }
@@ -131,6 +137,42 @@ export default function PublicQuizScreen() {
     setAnswers(createEmptyAnswers(quiz.questions));
     setSubmitted(false);
   };
+
+  const handleSubmit = () => {
+    setSubmitted(true);
+    // Fire-and-forget: the student's own correction below is computed
+    // locally and never depends on this call succeeding (see file header).
+    submitSubmission(slug, studentName, answers);
+  };
+
+  if (!started) {
+    const trimmedName = studentName.trim();
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Text style={styles.title}>{quiz.title}</Text>
+        <Text style={styles.instructions}>{quiz.instructions}</Text>
+
+        <Text style={styles.nameLabel}>Ton prénom</Text>
+        <TextInput
+          value={studentName}
+          onChangeText={setStudentName}
+          placeholder="Ton prénom"
+          placeholderTextColor="#999999"
+          style={styles.nameInput}
+          accessibilityLabel="Ton prénom"
+        />
+
+        <Pressable
+          style={[styles.button, trimmedName.length === 0 && styles.buttonDisabled]}
+          onPress={() => setStarted(true)}
+          disabled={trimmedName.length === 0}
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonText}>Commencer</Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -264,7 +306,7 @@ export default function PublicQuizScreen() {
       {!submitted && quiz.questions.length > 0 && (
         <Pressable
           style={[styles.button, !allAnswered && styles.buttonDisabled]}
-          onPress={() => setSubmitted(true)}
+          onPress={handleSubmit}
           disabled={!allAnswered}
           accessibilityRole="button"
         >
@@ -317,6 +359,23 @@ const styles = StyleSheet.create({
   instructions: {
     fontSize: 15,
     color: '#333333',
+    marginBottom: 20,
+  },
+  nameLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 6,
+  },
+  nameInput: {
+    borderWidth: 2,
+    borderColor: '#DDDDDD',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 16,
+    color: '#1A1A1A',
+    backgroundColor: '#FFFFFF',
     marginBottom: 20,
   },
   scoreBox: {

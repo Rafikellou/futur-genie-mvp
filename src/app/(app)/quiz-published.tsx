@@ -5,10 +5,14 @@ import { buildPublicQuizUrl } from '@/features/quiz-publishing/publicQuizUrl';
 
 // Result screen of Milestone 7's publish action: the teacher's confirmation
 // that the quiz is live, plus the public URL to give to students. Native
-// share sheet and "copy link" are Milestone 9 — the URL is shown as
+// share sheet and "copy link" are Milestone 10 — the URL is shown as
 // selectable text in the meantime so it can still be copied manually.
 export default function QuizPublishedScreen() {
-  const { title, slug } = useLocalSearchParams<{ title?: string; slug?: string }>();
+  const { title, slug, quizId } = useLocalSearchParams<{
+    title?: string;
+    slug?: string;
+    quizId?: string;
+  }>();
 
   if (!slug) {
     return (
@@ -40,6 +44,18 @@ export default function QuizPublishedScreen() {
           {url}
         </Text>
       </View>
+
+      {quizId && (
+        <Pressable
+          style={styles.buttonSecondary}
+          onPress={() =>
+            router.push({ pathname: '/quiz-results', params: { quizId, title: title || '' } })
+          }
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonSecondaryText}>Voir les réponses des élèves</Text>
+        </Pressable>
+      )}
 
       <Pressable style={styles.button} onPress={() => router.replace('/')} accessibilityRole="button">
         <Text style={styles.buttonText}>Retour à l&apos;accueil</Text>
@@ -96,6 +112,19 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonSecondary: {
+    borderWidth: 2,
+    borderColor: '#208AEF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  buttonSecondaryText: {
+    color: '#208AEF',
     fontSize: 16,
     fontWeight: '600',
   },

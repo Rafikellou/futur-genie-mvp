@@ -23,6 +23,12 @@ export default function HomeScreen() {
           <Text style={styles.createButtonText}>Créer un devoir</Text>
         </Pressable>
       </Link>
+
+      <Link href="/my-quizzes" asChild>
+        <Pressable style={styles.secondaryButton} accessibilityRole="button">
+          <Text style={styles.secondaryButtonText}>Mes devoirs</Text>
+        </Pressable>
+      </Link>
     </View>
   );
 }
@@ -58,6 +64,19 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    borderWidth: 2,
+    borderColor: '#208AEF',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  secondaryButtonText: {
+    color: '#208AEF',
     fontSize: 16,
     fontWeight: '600',
   },

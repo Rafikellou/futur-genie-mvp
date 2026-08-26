@@ -7,13 +7,12 @@
 // deliberate MVP tradeoff recorded in PROGRESS.md ("Correction élève") —
 // no submissions table, no server-side grading.
 import type { PublicQuestion } from '@shared/domain/quiz';
+import type { AnswerMap, StudentAnswer } from '@shared/domain/submission';
 
-export type StudentAnswer =
-  | { type: 'multiple_choice'; value: string | null }
-  | { type: 'true_false'; value: boolean | null }
-  | { type: 'short_answer'; value: string };
-
-export type AnswerMap = Record<string, StudentAnswer>;
+// Re-exported so existing importers (this screen's own tests, the public
+// quiz route) don't need to know the types moved to shared/domain in
+// Milestone 9 — see shared/domain/submission.ts for the canonical definition.
+export type { AnswerMap, StudentAnswer };
 
 export function createEmptyAnswers(questions: PublicQuestion[]): AnswerMap {
   const answers: AnswerMap = {};

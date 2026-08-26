@@ -174,6 +174,7 @@ The MVP includes:
 * Anonymous quiz completion
 * Basic automatic correction where appropriate
 * Basic result screen
+* Teacher visibility into student submissions per quiz (name and score)
 * Error handling
 * Loading states
 * Basic analytics/technical observability required to operate the product
@@ -218,6 +219,8 @@ Do NOT implement any of the following unless the user explicitly changes the pro
 * Permanent storage of lesson photographs
 * Microservices
 * Event-driven distributed architecture
+
+Clarification: per-quiz student submission visibility (§5, §16 `Submission`) is in scope and does not violate the "Student long-term progress tracking" exclusion above. A submission is scoped to a single quiz, identified only by a freely-typed first name (no account, no verification), and is never linked across quizzes into a student profile. Building any cross-quiz student identity or trend view would cross back into the excluded territory and needs an explicit scope decision first.
 
 If a requested implementation would implicitly introduce one of these features, explain the consequence before building it.
 
@@ -709,20 +712,34 @@ Result:
 
 Student can complete the exercise without authentication.
 
-## Milestone 9 — Sharing and History
+## Milestone 9 — Student Submission Tracking
+
+Implement:
+
+* `submissions` table scoped to a quiz (student name, answers, server-recomputed score)
+* a dedicated RPC for anonymous submission recording — server recomputes the score from the quiz's own data, never trusts a client-provided score; no direct client write access to the table
+* RLS restricting read access to the owning teacher
+* a minimal teacher-facing quiz list (entry point only — full history UX belongs to Milestone 10)
+* a per-quiz results screen: student name + score, sorted to surface struggling students first
+
+Result:
+
+A teacher can see, per quiz, who answered and how they scored, at a glance — without any student login.
+
+## Milestone 10 — Sharing and History
 
 Implement:
 
 * native share sheet
 * copy-link action
-* teacher quiz history
+* full teacher quiz history (builds on the minimal list from Milestone 9)
 * open previous quiz
 
 Result:
 
 Teacher can reuse and share generated exercises easily.
 
-## Milestone 10 — Hardening and Release
+## Milestone 11 — Hardening and Release
 
 Perform:
 
@@ -781,6 +798,26 @@ type Quiz = {
 ```
 
 During the MVP, storing question content as JSONB is preferred over creating many normalized relational tables unless a concrete limitation appears.
+
+## Submission
+
+Represents one student's answers to one published quiz. Anonymous: identified only by a freely-typed first name, never an account.
+
+Conceptually:
+
+```ts
+type Submission = {
+  id: string;
+  quizId: string;
+  studentName: string;
+  answers: Record<string, unknown>; // per-question answer, keyed by question id
+  correctCount: number;
+  gradableCount: number;
+  createdAt: string;
+};
+```
+
+`correctCount`/`gradableCount` are always computed server-side from the quiz's own data at submission time — never trusted from the client (§48).
 
 ---
 
@@ -1055,6 +1092,7 @@ Anonymous users must never gain access to:
 * internal prompt;
 * source evidence when unnecessary;
 * AI debug information;
+* other students' submission data (names, answers, scores) for the quiz they are taking;
 * secrets.
 
 Public identifiers must be difficult to guess.
@@ -1147,6 +1185,8 @@ unless future product requirements explicitly require it.
 Anonymous responses are preferred initially.
 
 Do not introduce persistent student tracking implicitly.
+
+**Explicit, scoped exception**: a student may optionally type their first name before starting a quiz, stored alongside their submission (§16 `Submission`) so the teacher can tell students apart on the results screen (§5). This stays within the spirit of "anonymous": no verification, no account, visible only to the owning teacher, and never linked across quizzes into a student profile. Do not extend this into a surname, email, or any other identifying field without an equally explicit product decision.
 
 ---
 
@@ -1474,6 +1514,8 @@ Validate requests server-side.
 Do not trust client-provided ownership IDs.
 
 Derive authenticated teacher identity from the authenticated session.
+
+The `submit quiz` operation must recompute any score server-side from the quiz's own stored data — never trust a score computed by the client.
 
 ---
 
@@ -1897,7 +1939,8 @@ The technical MVP is successful when a real teacher can:
 9. publish the quiz;
 10. share the generated link through WhatsApp, email or ÉcoleDirecte;
 11. have a student open the link in a normal browser;
-12. have that student complete the exercise without an account.
+12. have that student complete the exercise without an account;
+13. see, back in the app, which students answered that quiz and how they scored.
 
 If this works reliably, prioritize testing with users before expanding the feature set.
 

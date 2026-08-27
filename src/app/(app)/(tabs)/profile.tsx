@@ -83,10 +83,6 @@ export default function ProfileScreen() {
 
   return (
     <Screen style={styles.container}>
-      <Pressable onPress={() => router.back()} accessibilityRole="button">
-        <Text style={styles.back}>‹ Retour</Text>
-      </Pressable>
-
       <Text style={styles.title}>Mon profil</Text>
 
       <View style={styles.field}>
@@ -166,11 +162,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     gap: 12,
-  },
-  back: {
-    color: COLORS.primary,
-    fontSize: 16,
-    marginBottom: 12,
   },
   title: {
     fontSize: 24,

@@ -141,9 +141,6 @@ export default function MyQuizzesScreen() {
   return (
     <Screen style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button">
-          <Text style={styles.back}>‹ Retour</Text>
-        </Pressable>
         {state.status === 'ready' &&
           state.rows.filter((r) => r.status === 'published').length > 1 && (
             <Pressable
@@ -386,7 +383,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
+    minHeight: 24,
     marginBottom: 4,
   },
   back: {

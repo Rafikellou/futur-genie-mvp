@@ -16,11 +16,6 @@ export default function HomeScreen() {
 
       <View style={styles.header}>
         <Text style={styles.title}>Bonjour {greetingName}</Text>
-        <Link href="/profile" asChild>
-          <Pressable accessibilityRole="button" accessibilityLabel="Mon profil">
-            <Text style={styles.profileLink}>Profil</Text>
-          </Pressable>
-        </Link>
       </View>
 
       {/* Actions sit in the middle of the screen rather than stacked at the
@@ -51,20 +46,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginTop: 40,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    flexShrink: 1,
-  },
-  profileLink: {
-    color: COLORS.primary,
-    fontSize: 16,
-    fontWeight: '600',
   },
   actions: {
     flex: 1,

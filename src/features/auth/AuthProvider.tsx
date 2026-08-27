@@ -27,6 +27,7 @@ type AuthContextValue = {
   ) => Promise<{ requiresEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -107,6 +108,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [session],
   );
 
+  const deleteAccount = useCallback(async () => {
+    const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+    if (error) throw new Error('Une erreur est survenue. Réessayez dans un instant.');
+    // The server-side deletion already invalidated the session; clear it
+    // locally too so the app switches to the signed-out state immediately
+    // instead of waiting for the next failed request.
+    await supabase.auth.signOut();
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -117,6 +127,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signUp,
         signOut,
         updateDisplayName,
+        deleteAccount,
       }}
     >
       {children}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -14,10 +15,11 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { COLORS } from '@/theme/colors';
 
 export default function ProfileScreen() {
-  const { session, profile, updateDisplayName, signOut } = useAuth();
+  const { session, profile, updateDisplayName, signOut, deleteAccount } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -51,6 +53,32 @@ export default function ProfileScreen() {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
       setIsSigningOut(false);
     }
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Supprimer votre compte ?',
+      'Tous vos devoirs et les réponses de vos élèves seront définitivement supprimés. Cette action est irréversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer mon compte',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            setError(null);
+            try {
+              await deleteAccount();
+              // No manual navigation needed: the root layout's Stack.Protected
+              // guard switches to the (auth) group once the session clears.
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+              setIsDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -111,6 +139,23 @@ export default function ProfileScreen() {
         ) : (
           <Text style={styles.signOutButtonText}>Se déconnecter</Text>
         )}
+      </Pressable>
+
+      <Pressable
+        style={styles.deleteAccountButton}
+        onPress={handleDeleteAccount}
+        disabled={isDeleting}
+        accessibilityRole="button"
+      >
+        {isDeleting ? (
+          <ActivityIndicator color="#B42318" />
+        ) : (
+          <Text style={styles.deleteAccountButtonText}>Supprimer mon compte</Text>
+        )}
+      </Pressable>
+
+      <Pressable onPress={() => router.push('/privacy')} accessibilityRole="link">
+        <Text style={styles.privacyLink}>Politique de confidentialité</Text>
       </Pressable>
     </Screen>
   );
@@ -187,5 +232,21 @@ const styles = StyleSheet.create({
     color: '#B42318',
     fontSize: 16,
     fontWeight: '600',
+  },
+  deleteAccountButton: {
+    alignItems: 'center',
+    marginTop: 12,
+    paddingVertical: 10,
+  },
+  deleteAccountButtonText: {
+    color: '#98A2B3',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  },
+  privacyLink: {
+    color: COLORS.primary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 24,
   },
 });

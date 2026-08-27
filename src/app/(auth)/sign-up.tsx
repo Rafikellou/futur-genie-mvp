@@ -162,6 +162,10 @@ export default function SignUpScreen() {
         <Link href="/sign-in" style={styles.link}>
           Déjà un compte ? Se connecter
         </Link>
+
+        <Link href="/privacy" style={styles.privacyLink}>
+          Politique de confidentialité
+        </Link>
       </View>
     </KeyboardAvoidingView>
   );
@@ -237,5 +241,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: COLORS.primary,
     fontSize: 14,
+  },
+  privacyLink: {
+    textAlign: 'center',
+    marginTop: 12,
+    color: '#98A2B3',
+    fontSize: 13,
   },
 });

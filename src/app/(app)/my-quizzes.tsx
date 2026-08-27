@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Pressable,
   RefreshControl,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -32,8 +32,52 @@ type QuizRow = {
   title: string;
   status: 'draft' | 'published' | 'archived';
   created_at: string;
+  published_at: string | null;
   public_slug: string | null;
 };
+
+type QuizSection = { title: string; data: QuizRow[] };
+
+// Groups quizzes into day-labelled blocks ("Aujourd'hui", "Hier", then a
+// full date) so a teacher scanning the list can tell at a glance which
+// devoirs went out together. A published quiz is filed under its publish
+// day; a draft (never published) under the day it was created.
+function groupByDay(rows: QuizRow[]): QuizSection[] {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = startOfDay(new Date());
+
+  const effective = (row: QuizRow) => new Date(row.published_at ?? row.created_at).getTime();
+  const ordered = [...rows].sort((a, b) => effective(b) - effective(a));
+
+  const sections: QuizSection[] = [];
+  let current: QuizSection | null = null;
+
+  for (const row of ordered) {
+    const when = new Date(row.published_at ?? row.created_at);
+    const dayStart = startOfDay(when);
+    const diffDays = Math.round((today - dayStart) / 86_400_000);
+
+    let label: string;
+    if (diffDays <= 0) label = "Aujourd'hui";
+    else if (diffDays === 1) label = 'Hier';
+    else {
+      const formatted = when.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      });
+      label = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    }
+
+    if (!current || current.title !== label) {
+      current = { title: label, data: [] };
+      sections.push(current);
+    }
+    current.data.push(row);
+  }
+
+  return sections;
+}
 
 type LoadState =
   | { status: 'loading' }
@@ -55,7 +99,7 @@ export default function MyQuizzesScreen() {
     // rows — no explicit teacher_id filter needed.
     const { data, error } = await supabase
       .from('quizzes')
-      .select('id, title, status, created_at, public_slug')
+      .select('id, title, status, created_at, published_at, public_slug')
       .order('created_at', { ascending: false });
 
     if (error || !data) {
@@ -89,22 +133,36 @@ export default function MyQuizzesScreen() {
     return state.rows.filter((row) => selectedIds.has(row.id) && row.public_slug);
   }, [state, selectedIds]);
 
+  const sections = useMemo(
+    () => (state.status === 'ready' ? groupByDay(state.rows) : []),
+    [state]
+  );
+
   return (
     <Screen style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} accessibilityRole="button">
           <Text style={styles.back}>‹ Retour</Text>
         </Pressable>
-        {state.status === 'ready' && state.rows.some((r) => r.status === 'published') && (
-          <Pressable
-            onPress={() => (isSelectMode ? exitSelectMode() : setIsSelectMode(true))}
-            accessibilityRole="button"
-          >
-            <Text style={styles.selectToggle}>{isSelectMode ? 'Annuler' : 'Sélectionner'}</Text>
-          </Pressable>
-        )}
+        {state.status === 'ready' &&
+          state.rows.filter((r) => r.status === 'published').length > 1 && (
+            <Pressable
+              onPress={() => (isSelectMode ? exitSelectMode() : setIsSelectMode(true))}
+              accessibilityRole="button"
+            >
+              <Text style={styles.selectToggle}>
+                {isSelectMode ? 'Annuler' : 'Partager plusieurs'}
+              </Text>
+            </Pressable>
+          )}
       </View>
       <Text style={styles.title}>Mes devoirs</Text>
+
+      {isSelectMode && (
+        <Text style={styles.selectHint}>
+          Cochez les devoirs à envoyer, puis partagez-les en un seul message.
+        </Text>
+      )}
 
       {state.status === 'loading' && (
         <View style={styles.centered}>
@@ -128,12 +186,16 @@ export default function MyQuizzesScreen() {
       )}
 
       {state.status === 'ready' && state.rows.length > 0 && (
-        <FlatList
-          data={state.rows}
+        <SectionList
+          sections={sections}
           keyExtractor={(row) => row.id}
+          stickySectionHeadersEnabled={false}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={() => load(true)} />
           }
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.sectionHeader}>{section.title}</Text>
+          )}
           renderItem={({ item }) => (
             <QuizRowItem
               row={item}
@@ -229,7 +291,13 @@ function QuizRowItem({
   return (
     <Pressable
       onPress={() =>
-        router.push({ pathname: '/quiz-results', params: { quizId: row.id, title: row.title } })
+        // Opens the published-quiz screen (public link + share/copy), the
+        // same one shown right after publishing. Student results are one tap
+        // further, via its "Voir les réponses des élèves" button.
+        router.push({
+          pathname: '/quiz-published',
+          params: { title: row.title, slug: row.public_slug ?? '', quizId: row.id },
+        })
       }
       accessibilityRole="button"
       style={styles.rowPressable}
@@ -328,13 +396,30 @@ const styles = StyleSheet.create({
   },
   selectToggle: {
     color: COLORS.primary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
+    textAlign: 'right',
+    flexShrink: 1,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
     marginBottom: 16,
+  },
+  selectHint: {
+    fontSize: 14,
+    color: '#555555',
+    marginTop: -8,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#777777',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: 8,
+    marginBottom: 2,
   },
   centered: {
     alignItems: 'center',

@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 
+import { Screen } from '@/components/Screen';
 import { buildPublicQuizUrl } from '@/features/quiz-publishing/publicQuizUrl';
 import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
 import { COLORS } from '@/theme/colors';
 
-// Result screen of Milestone 7's publish action: the teacher's confirmation
-// that the quiz is live, plus the public URL to give to students, with the
-// native share sheet and "copy link" (Milestone 10).
+// The teacher's view of a published quiz: confirmation that it is live, the
+// public URL to give to students, and the share / copy actions (Milestones 7
+// & 10). Shown right after publishing, and also when a teacher taps a
+// published quiz in "Mes devoirs".
 export default function QuizPublishedScreen() {
   const { title, slug, quizId } = useLocalSearchParams<{
     title?: string;
@@ -16,25 +18,34 @@ export default function QuizPublishedScreen() {
     quizId?: string;
   }>();
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const canGoBack = router.canGoBack();
 
   if (!slug) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Devoir introuvable</Text>
-        <Text style={styles.body}>
-          Ce lien n&apos;est plus disponible. Retournez à l&apos;accueil et réessayez.
-        </Text>
-        <Pressable style={styles.button} onPress={() => router.replace('/')} accessibilityRole="button">
-          <Text style={styles.buttonText}>Retour à l&apos;accueil</Text>
-        </Pressable>
-      </ScrollView>
+      <Screen>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <Text style={styles.title}>Devoir introuvable</Text>
+          <Text style={styles.body}>
+            Ce lien n&apos;est plus disponible. Retournez à l&apos;accueil et réessayez.
+          </Text>
+          <Pressable style={styles.button} onPress={() => router.replace('/')} accessibilityRole="button">
+            <Text style={styles.buttonText}>Retour à l&apos;accueil</Text>
+          </Pressable>
+        </ScrollView>
+      </Screen>
     );
   }
 
   const url = buildPublicQuizUrl(slug);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <Screen>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {canGoBack && (
+        <Pressable onPress={() => router.back()} accessibilityRole="button">
+          <Text style={styles.back}>‹ Retour</Text>
+        </Pressable>
+      )}
       <Text style={styles.badge}>Devoir publié</Text>
       <Text style={styles.title}>{title || 'Le devoir'} est prêt</Text>
       <Text style={styles.body}>
@@ -86,7 +97,8 @@ export default function QuizPublishedScreen() {
       <Pressable style={styles.button} onPress={() => router.replace('/')} accessibilityRole="button">
         <Text style={styles.buttonText}>Retour à l&apos;accueil</Text>
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </Screen>
   );
 }
 
@@ -100,6 +112,11 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     gap: 4,
     flexGrow: 1,
+  },
+  back: {
+    color: COLORS.primary,
+    fontSize: 16,
+    marginBottom: 12,
   },
   badge: {
     color: '#1F6E40',

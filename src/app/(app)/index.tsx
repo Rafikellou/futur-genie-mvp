@@ -1,6 +1,8 @@
 import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Screen } from '@/components/Screen';
+import { Logo } from '@/components/Logo';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { COLORS } from '@/theme/colors';
 
@@ -9,7 +11,9 @@ export default function HomeScreen() {
   const greetingName = profile?.displayName?.trim() || 'enseignant·e';
 
   return (
-    <View style={styles.container}>
+    <Screen style={styles.container}>
+      <Logo size={44} style={styles.logo} />
+
       <View style={styles.header}>
         <Text style={styles.title}>Bonjour {greetingName}</Text>
         <Link href="/profile" asChild>
@@ -19,18 +23,22 @@ export default function HomeScreen() {
         </Link>
       </View>
 
-      <Link href="/create" asChild>
-        <Pressable style={styles.createButton} accessibilityRole="button">
-          <Text style={styles.createButtonText}>Créer un devoir</Text>
-        </Pressable>
-      </Link>
+      {/* Actions sit in the middle of the screen rather than stacked at the
+          top, so the home screen doesn't leave the lower half empty. */}
+      <View style={styles.actions}>
+        <Link href="/create" asChild>
+          <Pressable style={styles.createButton} accessibilityRole="button">
+            <Text style={styles.createButtonText}>Créer un devoir</Text>
+          </Pressable>
+        </Link>
 
-      <Link href="/my-quizzes" asChild>
-        <Pressable style={styles.secondaryButton} accessibilityRole="button">
-          <Text style={styles.secondaryButtonText}>Mes devoirs</Text>
-        </Pressable>
-      </Link>
-    </View>
+        <Link href="/my-quizzes" asChild>
+          <Pressable style={styles.secondaryButton} accessibilityRole="button">
+            <Text style={styles.secondaryButtonText}>Mes devoirs</Text>
+          </Pressable>
+        </Link>
+      </View>
+    </Screen>
   );
 }
 
@@ -38,13 +46,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
-    gap: 12,
+  },
+  logo: {
+    marginTop: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 40,
   },
   title: {
     fontSize: 24,
@@ -56,12 +66,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  actions: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 12,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+  },
   createButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 10,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 24,
   },
   createButtonText: {
     color: '#FFFFFF',
@@ -72,9 +89,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.primary,
     borderRadius: 10,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 12,
   },
   secondaryButtonText: {
     color: COLORS.primary,

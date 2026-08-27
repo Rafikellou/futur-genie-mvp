@@ -10,6 +10,9 @@ import {
   View,
 } from 'react-native';
 
+import { Screen } from '@/components/Screen';
+import { Logo } from '@/components/Logo';
+
 // Deliberately outside the (app)/(auth) route groups (see src/app/_layout.tsx):
 // neither Stack.Protected guard covers this file, so it renders without a
 // teacher session — this is the student-facing public route (CLAUDE.md §8).
@@ -40,10 +43,14 @@ type LoadState =
 export default function PublicQuizScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [teacherName, setTeacherName] = useState<string | null>(null);
   const [studentName, setStudentName] = useState('');
   const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [submitted, setSubmitted] = useState(false);
+  // The quiz screen stays scrolled wherever the student left off when they
+  // submit; scroll it back to the top so the score is what they see next.
+  const scrollRef = useRef<ScrollView>(null);
   // Guards the background submission, not just the correction display: a
   // "Recommencer" (or a fast double-tap on "Valider") must never record a
   // second row for the same sitting — the teacher's results list should
@@ -58,7 +65,7 @@ export default function PublicQuizScreen() {
     try {
       const { data, error } = await supabase
         .from('public_quizzes')
-        .select('public_quiz_data')
+        .select('public_quiz_data, teacher_name')
         .eq('public_slug', slug)
         .maybeSingle();
 
@@ -70,6 +77,13 @@ export default function PublicQuizScreen() {
         setState({ status: 'not_found' });
         return;
       }
+
+      const rawTeacherName = (data as { teacher_name?: unknown }).teacher_name;
+      setTeacherName(
+        typeof rawTeacherName === 'string' && rawTeacherName.trim().length > 0
+          ? rawTeacherName.trim()
+          : null
+      );
 
       const parsed = PublicQuizDataSchema.safeParse(data.public_quiz_data);
       if (!parsed.success) {
@@ -93,34 +107,40 @@ export default function PublicQuizScreen() {
 
   if (state.status === 'loading') {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Chargement du devoir…</Text>
-      </View>
+      <Screen>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Chargement du devoir…</Text>
+        </View>
+      </Screen>
     );
   }
 
   if (state.status === 'not_found') {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.title}>Devoir introuvable</Text>
-        <Text style={styles.body}>
-          Ce lien n&apos;est plus valable. Demandez à votre enseignant·e de vous en renvoyer
-          un.
-        </Text>
-      </View>
+      <Screen>
+        <View style={styles.centered}>
+          <Text style={styles.title}>Devoir introuvable</Text>
+          <Text style={styles.body}>
+            Ce lien n&apos;est plus valable. Demandez à votre enseignant·e de vous en renvoyer
+            un.
+          </Text>
+        </View>
+      </Screen>
     );
   }
 
   if (state.status === 'error') {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.title}>Impossible d&apos;ouvrir ce devoir</Text>
-        <Text style={styles.body}>Vérifiez votre connexion Internet puis réessayez.</Text>
-        <Pressable style={styles.button} onPress={load} accessibilityRole="button">
-          <Text style={styles.buttonText}>Réessayer</Text>
-        </Pressable>
-      </View>
+      <Screen>
+        <View style={styles.centered}>
+          <Text style={styles.title}>Impossible d&apos;ouvrir ce devoir</Text>
+          <Text style={styles.body}>Vérifiez votre connexion Internet puis réessayez.</Text>
+          <Pressable style={styles.button} onPress={load} accessibilityRole="button">
+            <Text style={styles.buttonText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      </Screen>
     );
   }
 
@@ -146,10 +166,13 @@ export default function PublicQuizScreen() {
   const handleRetry = () => {
     setAnswers(createEmptyAnswers(quiz.questions));
     setSubmitted(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const handleSubmit = () => {
     setSubmitted(true);
+    // Defer past this render so the score box exists before we scroll to it.
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
     // "Recommencer" still recomputes and shows the correction locally every
     // time (unchanged) — only the background recording is limited to the
     // first attempt of this sitting.
@@ -161,39 +184,55 @@ export default function PublicQuizScreen() {
     }
   };
 
+  const invitation = teacherName
+    ? `Ton enseignant·e ${teacherName} te propose ce quiz pour continuer à progresser !`
+    : 'Ton enseignant·e te propose ce quiz pour continuer à progresser !';
+
   if (!started) {
     const trimmedName = studentName.trim();
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{quiz.title}</Text>
-        <Text style={styles.instructions}>{quiz.instructions}</Text>
+      <Screen>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <Logo size={38} style={styles.logo} />
+          <Text style={styles.invitation}>{invitation}</Text>
 
-        <Text style={styles.nameLabel}>Ton prénom</Text>
-        <TextInput
-          value={studentName}
-          onChangeText={setStudentName}
-          placeholder="Ton prénom"
-          placeholderTextColor="#999999"
-          style={styles.nameInput}
-          accessibilityLabel="Ton prénom"
-        />
+          <Text style={styles.title}>{quiz.title}</Text>
+          <Text style={styles.instructions}>{quiz.instructions}</Text>
 
-        <Pressable
-          style={[styles.button, trimmedName.length === 0 && styles.buttonDisabled]}
-          onPress={() => setStarted(true)}
-          disabled={trimmedName.length === 0}
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonText}>Commencer</Text>
-        </Pressable>
-      </ScrollView>
+          <Text style={styles.nameLabel}>Ton prénom</Text>
+          <TextInput
+            value={studentName}
+            onChangeText={setStudentName}
+            placeholder="Ton prénom"
+            placeholderTextColor="#999999"
+            selectionColor={COLORS.primary}
+            style={styles.nameInput}
+            accessibilityLabel="Ton prénom"
+          />
+
+          <Pressable
+            style={[styles.button, trimmedName.length === 0 && styles.buttonDisabled]}
+            onPress={() => setStarted(true)}
+            disabled={trimmedName.length === 0}
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>Commencer</Text>
+          </Pressable>
+        </ScrollView>
+      </Screen>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{quiz.title}</Text>
-      <Text style={styles.instructions}>{quiz.instructions}</Text>
+    <Screen>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.container}
+        contentContainerStyle={styles.content}
+      >
+        <Logo size={32} style={styles.logo} />
+        <Text style={styles.title}>{quiz.title}</Text>
+        <Text style={styles.instructions}>{quiz.instructions}</Text>
 
       {summary && (
         <View style={styles.scoreBox}>
@@ -290,6 +329,7 @@ export default function PublicQuizScreen() {
                   editable={!submitted}
                   placeholder="Ta réponse"
                   placeholderTextColor="#999999"
+                  selectionColor={COLORS.primary}
                   style={[styles.shortAnswerInput, submitted && styles.shortAnswerInputDisabled]}
                   accessibilityLabel={`Ta réponse à la question ${index + 1}`}
                 />
@@ -335,7 +375,8 @@ export default function PublicQuizScreen() {
           <Text style={styles.buttonSecondaryText}>Recommencer</Text>
         </Pressable>
       )}
-    </ScrollView>
+      </ScrollView>
+    </Screen>
   );
 }
 
@@ -361,11 +402,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#555555',
   },
+  logo: {
+    marginBottom: 16,
+  },
+  invitation: {
+    fontSize: 15,
+    color: COLORS.primaryPressed,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
     marginBottom: 8,
-    textAlign: 'center',
   },
   body: {
     fontSize: 15,

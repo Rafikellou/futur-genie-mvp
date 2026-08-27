@@ -70,6 +70,21 @@ export default function QuizDraftScreen() {
     );
   }
 
+  function handleAddQuestion(type: Question['type']) {
+    setQuiz((prev) =>
+      prev ? { ...prev, questions: [...prev.questions, makeEmptyQuestion(type)] } : prev
+    );
+  }
+
+  function promptAddQuestion() {
+    Alert.alert('Ajouter une question', 'Choisissez le type de question.', [
+      { text: 'Choix multiple', onPress: () => handleAddQuestion('multiple_choice') },
+      { text: 'Vrai ou Faux', onPress: () => handleAddQuestion('true_false') },
+      { text: 'Réponse courte', onPress: () => handleAddQuestion('short_answer') },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  }
+
   function handleDeleteQuestion(questionId: string) {
     Alert.alert('Supprimer cette question ?', 'Cette action est irréversible.', [
       { text: 'Annuler', style: 'cancel' },
@@ -234,6 +249,14 @@ export default function QuizDraftScreen() {
           ))}
         </View>
 
+        <Pressable
+          style={styles.addQuestionButton}
+          onPress={promptAddQuestion}
+          accessibilityRole="button"
+        >
+          <Text style={styles.addQuestionText}>+ Ajouter une question</Text>
+        </Pressable>
+
         {publishError ? (
           <Text style={styles.error} accessibilityRole="alert">
             {publishError}
@@ -262,6 +285,27 @@ export default function QuizDraftScreen() {
 // edited quiz stays in memory, so retrying costs nothing.
 const PUBLISH_ERROR_MESSAGE =
   "Impossible de publier ce devoir pour le moment. Vérifiez votre connexion et réessayez.";
+
+// A blank question the teacher fills in from the review screen. `explanation`
+// and `sourceEvidence` stay empty — neither applies to a hand-added question
+// (the shared schema allows empty strings for exactly this case), and
+// `sourceEvidence` is stripped from the published quiz anyway.
+function makeEmptyQuestion(type: Question['type']): Question {
+  const base = {
+    id: `q-added-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    question: '',
+    explanation: '',
+    sourceEvidence: '',
+  };
+  switch (type) {
+    case 'multiple_choice':
+      return { ...base, type, choices: ['', ''], correctAnswer: '' };
+    case 'true_false':
+      return { ...base, type, correctAnswer: true };
+    case 'short_answer':
+      return { ...base, type, correctAnswer: '' };
+  }
+}
 
 function parseQuiz(raw: string | undefined): QuizData | null {
   if (!raw) return null;
@@ -590,6 +634,20 @@ const styles = StyleSheet.create({
     borderColor: '#DDDDDD',
     paddingVertical: 8,
     paddingHorizontal: 12,
+  },
+  addQuestionButton: {
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addQuestionText: {
+    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   error: {
     color: '#B42318',

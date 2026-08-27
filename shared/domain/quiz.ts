@@ -23,11 +23,18 @@ export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer';
 // Fields every question type shares. `sourceEvidence` is internal quality
 // metadata (CLAUDE.md §23) — the app must never render it to students, and
 // the public quiz payload (Milestone 7) must strip it before publication.
+//
+// `explanation`/`sourceEvidence` allow an empty string: a teacher can add a
+// question by hand in the review screen (Milestone 6), and such a question
+// has no AI-authored explanation or source evidence. The AI output contract
+// stays strict independently — the generate-quiz Edge Function validates the
+// model against its own `WireQuestionSchema` (min(1) on both) before this
+// schema ever sees the data.
 const baseQuestionShape = {
   id: z.string().min(1),
   question: z.string().min(1),
-  explanation: z.string().min(1),
-  sourceEvidence: z.string().min(1),
+  explanation: z.string(),
+  sourceEvidence: z.string(),
 };
 
 export const MultipleChoiceQuestionSchema = z.object({

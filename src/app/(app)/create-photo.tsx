@@ -352,6 +352,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    // The half-width "Choisir une autre photo" button wraps onto two lines;
+    // without this the wrapped text aligns left instead of under the label.
+    textAlign: 'center',
   },
   buttonTextSecondary: {
     color: COLORS.primary,

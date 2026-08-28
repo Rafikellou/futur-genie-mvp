@@ -41,14 +41,16 @@ conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
   constantes de domaine, schémas Zod, client Supabase) + `supabase/`
   (migrations + Edge Functions).
 - **Auth** : Supabase Auth, email + mot de passe.
-- **LLM** : OpenAI, `gpt-5.6-terra` par défaut (`gpt-4.1` en repli si le
+- **LLM** : OpenAI, `gpt-5.6-luna` par défaut (`gpt-4.1` en repli si le
   modèle primaire est indisponible ou renvoie une sortie non exploitable),
   derrière une fonction `generateQuizFromLesson()`. `gpt-4o-mini` (défaut
   historique) abandonné : trop faible pour la calibration de difficulté par
   niveau et la nuance pédagogique (voir « Fiabilisation des quizs » plus
-  bas). `gpt-5.6-terra` = modèle multimodal à raisonnement, milieu de gamme
-  actuel ($2/$12 par 1M tokens), `reasoning_effort: low` pour tenir dans le
-  budget de latence.
+  bas). `gpt-5.6-luna` = modèle multimodal à raisonnement, entrée de gamme
+  actuel ($0,20/$1,20 par 1M tokens), `reasoning_effort: low`. **Décision
+  (utilisateur)** : commencer par `luna` ; si les leçons CE2 réelles
+  restent trop faciles, monter vers `gpt-5.6-terra` ($2/$12, un cran
+  au-dessus) — même forme d'API, un seul mot à changer.
 - **Image de leçon** : compressée côté client, envoyée en base64 à l'Edge
   Function, jamais stockée (ni Storage ni disque).
 - **Publication** : RPC Postgres `publish_quiz` (pas d'Edge Function —
@@ -465,14 +467,15 @@ le modèle, et la distinction règle/mémoire laissée implicite.
 
 Implémenté :
 
-- **Modèle** : primaire `gpt-4o-mini` → `gpt-5.6-terra` (multimodal à
-  raisonnement, milieu de gamme actuel) ; repli `gpt-4o` → `gpt-4.1`
-  (génération précédente, non-raisonnement, mais éprouvé sur ce même
-  endpoint). Le repli se déclenche désormais aussi sur `model_unavailable`
-  — donc si le compte OpenAI n'a pas accès à GPT-5, la génération bascule
-  proprement sur `gpt-4.1` au lieu d'échouer. `reasoning_effort: low`
-  envoyé uniquement aux modèles `gpt-5*` (les anciens rejettent ce
-  paramètre).
+- **Modèle** : primaire `gpt-4o-mini` → `gpt-5.6-luna` (multimodal à
+  raisonnement, entrée de gamme actuel — point de départ choisi par
+  l'utilisateur, `gpt-5.6-terra` en réserve si trop faible) ; repli
+  `gpt-4o` → `gpt-4.1` (génération précédente, non-raisonnement, mais
+  éprouvé sur ce même endpoint). Le repli se déclenche désormais aussi sur
+  `model_unavailable` — donc si le compte OpenAI n'a pas accès à GPT-5, la
+  génération bascule proprement sur `gpt-4.1` au lieu d'échouer.
+  `reasoning_effort: low` envoyé uniquement aux modèles `gpt-5*` (les
+  anciens rejettent ce paramètre).
 - **Classification règle vs mémoire** (`shared/domain/lessonMode.ts` :
   `generative` / `factual` / `mixed`). Le prompt système impose de classer
   la leçon *avant* d'écrire les questions, et autorise explicitement — pour
@@ -512,10 +515,12 @@ Non vérifié :
 - Effet réel sur la difficulté perçue par une enseignante sur une leçon CE2
   réelle (le point de départ du sujet). À tester sur appareil après
   déploiement (`npx supabase functions deploy generate-quiz`).
-- Disponibilité de `gpt-5.6-terra` sur le compte OpenAI, et son bon
+- Disponibilité de `gpt-5.6-luna` sur le compte OpenAI, et son bon
   fonctionnement sur l'endpoint `chat/completions` avec `json_schema` +
   `reasoning_effort` (le repli sur `gpt-4.1` couvre l'échec, mais à
   confirmer sur appareil).
+- Si `luna` suffit pour la difficulté perçue, ou s'il faut monter vers
+  `terra`.
 - Jeu d'évaluation pédagogique systématique — toujours pas construit
   (prérequis des phases 2-3).
 

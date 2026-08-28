@@ -13,16 +13,18 @@ import { AiQuizResponseSchema, type AiQuizResponse } from './aiResponse.ts';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 // gpt-4o-mini was too weak for grade-level calibration and pedagogical
 // nuance (see PROGRESS.md, Milestone 6 — a real CE2 lesson kept producing
-// CP/CE1 questions). gpt-5.6-terra is a current mid-tier multimodal
-// reasoning model ($2/$12 per 1M tokens, 1M-token context, native image +
-// structured-output support): it actually works through the multi-step
-// instructions in prompt.ts (classify the lesson, then apply the rule to
-// fresh cases, calibrate to the page) rather than defaulting to the
-// safest/easiest question. gpt-4.1 is the fallback — previous-generation,
-// non-reasoning, but a known-good multimodal model on this same endpoint,
-// so it is the safe landing spot if the primary is unavailable (e.g. the
-// account has no GPT-5 access) or returns something unparseable.
-const PRIMARY_MODEL = 'gpt-5.6-terra';
+// CP/CE1 questions). gpt-5.6-luna is the current cost-optimized multimodal
+// reasoning model ($0.20/$1.20 per 1M tokens, 1M-token context, native
+// image + structured-output support): still a reasoning model, so it can
+// follow the multi-step instructions in prompt.ts (classify the lesson,
+// then apply the rule to fresh cases, calibrate to the page). Starting
+// here on purpose — if real CE2 lessons still come out too easy, move up
+// to gpt-5.6-terra (same API shape, just change this string). gpt-4.1 is
+// the fallback — previous-generation, non-reasoning, but a known-good
+// multimodal model on this same endpoint, so it is the safe landing spot
+// if the primary is unavailable (e.g. the account has no GPT-5 access) or
+// returns something unparseable.
+const PRIMARY_MODEL = 'gpt-5.6-luna';
 const FALLBACK_MODEL = 'gpt-4.1';
 
 // GPT-5 models are reasoning models; "low" keeps latency inside

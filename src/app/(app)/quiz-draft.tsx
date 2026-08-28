@@ -16,7 +16,7 @@ import { supabase } from '@shared/supabase/client';
 import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS } from '@shared/domain/subject';
 import { EXERCISE_TYPES } from '@shared/domain/exercise';
-import { QuizDataSchema, type Question, type QuizData } from '@shared/domain/quiz';
+import { BLANK_MARKER, QuizDataSchema, type Question, type QuizData } from '@shared/domain/quiz';
 import { LESSON_MODE_LABELS, LESSON_MODES, type LessonMode } from '@shared/domain/lessonMode';
 import { COLORS } from '@/theme/colors';
 
@@ -85,7 +85,8 @@ export default function QuizDraftScreen() {
     Alert.alert('Ajouter une question', 'Choisissez le type de question.', [
       { text: 'Choix multiple', onPress: () => handleAddQuestion('multiple_choice') },
       { text: 'Vrai ou Faux', onPress: () => handleAddQuestion('true_false') },
-      { text: 'Réponse courte', onPress: () => handleAddQuestion('short_answer') },
+      { text: 'Texte à trous', onPress: () => handleAddQuestion('gap_fill') },
+      { text: 'Reliez les paires', onPress: () => handleAddQuestion('matching') },
       { text: 'Annuler', style: 'cancel' },
     ]);
   }
@@ -221,7 +222,7 @@ export default function QuizDraftScreen() {
               }
               onChangeChoiceText={(choiceIndex, text) =>
                 updateQuestion(question.id, (q) => {
-                  if (q.type !== 'multiple_choice') return q;
+                  if (!isChoiceQuestion(q)) return q;
                   const oldChoice = q.choices[choiceIndex];
                   const choices = q.choices.map((c, i) => (i === choiceIndex ? text : c));
                   const correctAnswer = q.correctAnswer === oldChoice ? text : q.correctAnswer;
@@ -230,19 +231,19 @@ export default function QuizDraftScreen() {
               }
               onSelectCorrectChoice={(choiceIndex) =>
                 updateQuestion(question.id, (q) =>
-                  q.type === 'multiple_choice' ? { ...q, correctAnswer: q.choices[choiceIndex] } : q
+                  isChoiceQuestion(q) ? { ...q, correctAnswer: q.choices[choiceIndex] } : q
                 )
               }
               onAddChoice={() =>
                 updateQuestion(question.id, (q) =>
-                  q.type === 'multiple_choice' && q.choices.length < 6
+                  isChoiceQuestion(q) && q.choices.length < maxChoicesFor(q)
                     ? { ...q, choices: [...q.choices, ''] }
                     : q
                 )
               }
               onRemoveChoice={(choiceIndex) =>
                 updateQuestion(question.id, (q) => {
-                  if (q.type !== 'multiple_choice' || q.choices.length <= 2) return q;
+                  if (!isChoiceQuestion(q) || q.choices.length <= 2) return q;
                   const removed = q.choices[choiceIndex];
                   const choices = q.choices.filter((_, i) => i !== choiceIndex);
                   const correctAnswer = q.correctAnswer === removed ? choices[0] : q.correctAnswer;
@@ -252,8 +253,29 @@ export default function QuizDraftScreen() {
               onSelectTrueFalse={(value) =>
                 updateQuestion(question.id, (q) => (q.type === 'true_false' ? { ...q, correctAnswer: value } : q))
               }
-              onChangeShortAnswer={(text) =>
-                updateQuestion(question.id, (q) => (q.type === 'short_answer' ? { ...q, correctAnswer: text } : q))
+              onChangePairText={(pairIndex, side, text) =>
+                updateQuestion(question.id, (q) =>
+                  q.type === 'matching'
+                    ? {
+                        ...q,
+                        pairs: q.pairs.map((p, i) => (i === pairIndex ? { ...p, [side]: text } : p)),
+                      }
+                    : q
+                )
+              }
+              onAddPair={() =>
+                updateQuestion(question.id, (q) =>
+                  q.type === 'matching' && q.pairs.length < 4
+                    ? { ...q, pairs: [...q.pairs, { left: '', right: '' }] }
+                    : q
+                )
+              }
+              onRemovePair={(pairIndex) =>
+                updateQuestion(question.id, (q) =>
+                  q.type === 'matching' && q.pairs.length > 2
+                    ? { ...q, pairs: q.pairs.filter((_, i) => i !== pairIndex) }
+                    : q
+                )
               }
               onDelete={() => handleDeleteQuestion(question.id)}
             />
@@ -313,9 +335,31 @@ function makeEmptyQuestion(type: Question['type']): Question {
       return { ...base, type, choices: ['', ''], correctAnswer: '' };
     case 'true_false':
       return { ...base, type, correctAnswer: true };
-    case 'short_answer':
-      return { ...base, type, correctAnswer: '' };
+    case 'gap_fill':
+      return { ...base, type, question: `Complète : … ${BLANK_MARKER} …`, choices: ['', ''], correctAnswer: '' };
+    case 'matching':
+      return {
+        ...base,
+        type,
+        question: 'Relie chaque élément à sa bonne réponse.',
+        pairs: [
+          { left: '', right: '' },
+          { left: '', right: '' },
+        ],
+      };
   }
+}
+
+// multiple_choice and gap_fill both edit a list of choices with one marked
+// correct — the editor treats them the same.
+type ChoiceQuestion = Extract<Question, { type: 'multiple_choice' | 'gap_fill' }>;
+
+function isChoiceQuestion(q: Question): q is ChoiceQuestion {
+  return q.type === 'multiple_choice' || q.type === 'gap_fill';
+}
+
+function maxChoicesFor(q: ChoiceQuestion): number {
+  return q.type === 'gap_fill' ? 4 : 6;
 }
 
 function parseLessonMode(raw: string | undefined): LessonMode | null {
@@ -345,14 +389,24 @@ function findQuizIssues(quiz: QuizData): string[] {
   quiz.questions.forEach((q, index) => {
     const n = index + 1;
     if (!q.question.trim()) issues.push(`La question ${n} est vide.`);
-    if (q.type === 'multiple_choice') {
+    if (q.type === 'multiple_choice' || q.type === 'gap_fill') {
       if (q.choices.some((c) => !c.trim())) issues.push(`Une réponse de la question ${n} est vide.`);
       if (!q.choices.includes(q.correctAnswer)) {
         issues.push(`Choisissez la bonne réponse pour la question ${n}.`);
       }
     }
-    if (q.type === 'short_answer' && !q.correctAnswer.trim()) {
-      issues.push(`La réponse attendue de la question ${n} est vide.`);
+    if (q.type === 'gap_fill' && !q.question.includes(BLANK_MARKER)) {
+      issues.push(`La question ${n} (texte à trous) doit contenir le trou « ${BLANK_MARKER} ».`);
+    }
+    if (q.type === 'matching') {
+      if (q.pairs.some((p) => !p.left.trim() || !p.right.trim())) {
+        issues.push(`Une paire de la question ${n} est incomplète.`);
+      }
+      const lefts = q.pairs.map((p) => p.left.trim());
+      const rights = q.pairs.map((p) => p.right.trim());
+      if (new Set(lefts).size !== lefts.length || new Set(rights).size !== rights.length) {
+        issues.push(`Les paires de la question ${n} doivent être toutes différentes.`);
+      }
     }
   });
 
@@ -368,7 +422,9 @@ type QuestionCardProps = {
   onAddChoice: () => void;
   onRemoveChoice: (choiceIndex: number) => void;
   onSelectTrueFalse: (value: boolean) => void;
-  onChangeShortAnswer: (text: string) => void;
+  onChangePairText: (pairIndex: number, side: 'left' | 'right', text: string) => void;
+  onAddPair: () => void;
+  onRemovePair: (pairIndex: number) => void;
   onDelete: () => void;
 };
 
@@ -381,7 +437,9 @@ function QuestionCard({
   onAddChoice,
   onRemoveChoice,
   onSelectTrueFalse,
-  onChangeShortAnswer,
+  onChangePairText,
+  onAddPair,
+  onRemovePair,
   onDelete,
 }: QuestionCardProps) {
   return (
@@ -397,12 +455,23 @@ function QuestionCard({
         style={styles.questionInput}
         value={question.question}
         onChangeText={onChangeQuestionText}
-        placeholder="Énoncé de la question"
+        placeholder={
+          question.type === 'gap_fill'
+            ? `Phrase à compléter (mettez ${BLANK_MARKER} à l'endroit du trou)`
+            : 'Énoncé de la question'
+        }
         accessibilityLabel={`Énoncé de la question ${index + 1}`}
         multiline
       />
 
-      {question.type === 'multiple_choice' && (
+      {question.type === 'gap_fill' && (
+        <Text style={styles.gapHint}>
+          Le trou est noté {BLANK_MARKER}. L&apos;élève choisit le bon mot parmi les réponses
+          ci-dessous.
+        </Text>
+      )}
+
+      {(question.type === 'multiple_choice' || question.type === 'gap_fill') && (
         <View style={styles.choiceList}>
           {question.choices.map((choice, choiceIndex) => {
             const isCorrect = choice === question.correctAnswer;
@@ -439,7 +508,7 @@ function QuestionCard({
               </View>
             );
           })}
-          {question.choices.length < 6 && (
+          {question.choices.length < maxChoicesFor(question) && (
             <Pressable onPress={onAddChoice} accessibilityRole="button">
               <Text style={styles.addChoiceText}>+ Ajouter une réponse</Text>
             </Pressable>
@@ -471,18 +540,49 @@ function QuestionCard({
         </View>
       )}
 
-      {question.type === 'short_answer' && (
-        <View style={styles.shortAnswerRow}>
-          <Text style={styles.shortAnswerLabel}>Réponse attendue</Text>
-          <TextInput
-            style={styles.shortAnswerInput}
-            value={question.correctAnswer}
-            onChangeText={onChangeShortAnswer}
-            placeholder="Réponse attendue"
-            accessibilityLabel={`Réponse attendue de la question ${index + 1}`}
-          />
+      {question.type === 'matching' && (
+        <View style={styles.choiceList}>
+          <Text style={styles.gapHint}>
+            Chaque paire relie un élément de gauche à sa bonne réponse à droite. L&apos;élève doit
+            toutes les retrouver.
+          </Text>
+          {question.pairs.map((pair, pairIndex) => (
+            <View key={pairIndex} style={styles.pairRow}>
+              <TextInput
+                style={styles.pairInput}
+                value={pair.left}
+                onChangeText={(text) => onChangePairText(pairIndex, 'left', text)}
+                placeholder="Élément"
+                accessibilityLabel={`Élément ${pairIndex + 1} de la question ${index + 1}`}
+              />
+              <Text style={styles.pairArrow}>→</Text>
+              <TextInput
+                style={styles.pairInput}
+                value={pair.right}
+                onChangeText={(text) => onChangePairText(pairIndex, 'right', text)}
+                placeholder="Bonne réponse"
+                accessibilityLabel={`Bonne réponse ${pairIndex + 1} de la question ${index + 1}`}
+              />
+              {question.pairs.length > 2 && (
+                <Pressable
+                  onPress={() => onRemovePair(pairIndex)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Supprimer cette paire"
+                  hitSlop={8}
+                >
+                  <Text style={styles.removeChoiceText}>✕</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+          {question.pairs.length < 4 && (
+            <Pressable onPress={onAddPair} accessibilityRole="button">
+              <Text style={styles.addChoiceText}>+ Ajouter une paire</Text>
+            </Pressable>
+          )}
         </View>
       )}
+
     </View>
   );
 }
@@ -580,6 +680,30 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     padding: 0,
   },
+  gapHint: {
+    fontSize: 13,
+    color: '#555555',
+    marginTop: 2,
+  },
+  pairRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pairInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1A1A1A',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  pairArrow: {
+    fontSize: 15,
+    color: '#777777',
+  },
   choiceList: {
     gap: 8,
   },
@@ -642,23 +766,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 2,
-  },
-  shortAnswerRow: {
-    gap: 4,
-  },
-  shortAnswerLabel: {
-    fontSize: 13,
-    color: '#1F6E40',
-    fontWeight: '600',
-  },
-  shortAnswerInput: {
-    fontSize: 15,
-    color: '#1A1A1A',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
   },
   addQuestionButton: {
     borderWidth: 2,

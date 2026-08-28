@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -17,7 +17,12 @@ import { Logo } from '@/components/Logo';
 // neither Stack.Protected guard covers this file, so it renders without a
 // teacher session — this is the student-facing public route (CLAUDE.md §8).
 import { supabase } from '@shared/supabase/client';
-import { PublicQuizDataSchema, type PublicQuizData } from '@shared/domain/quiz';
+import {
+  BLANK_MARKER,
+  PublicQuizDataSchema,
+  type MatchingPair,
+  type PublicQuizData,
+} from '@shared/domain/quiz';
 import {
   areAllAnswered,
   createEmptyAnswers,
@@ -158,9 +163,21 @@ export default function PublicQuizScreen() {
     setAnswers((prev) => ({ ...prev, [questionId]: { type: 'true_false', value } }));
   };
 
-  const setShortAnswer = (questionId: string, text: string) => {
+  const setGapFillAnswer = (questionId: string, choice: string) => {
     if (submitted) return;
-    setAnswers((prev) => ({ ...prev, [questionId]: { type: 'short_answer', value: text } }));
+    setAnswers((prev) => ({ ...prev, [questionId]: { type: 'gap_fill', value: choice } }));
+  };
+
+  const setMatchingAnswer = (questionId: string, pairIndex: number, rightLabel: string) => {
+    if (submitted) return;
+    setAnswers((prev) => {
+      const current = prev[questionId];
+      const value = current?.type === 'matching' ? current.value : {};
+      return {
+        ...prev,
+        [questionId]: { type: 'matching', value: { ...value, [String(pairIndex)]: rightLabel } },
+      };
+    });
   };
 
   const handleRetry = () => {
@@ -236,13 +253,9 @@ export default function PublicQuizScreen() {
 
       {summary && (
         <View style={styles.scoreBox}>
-          {summary.gradableCount > 0 ? (
-            <Text style={styles.scoreText}>
-              {summary.correctCount} / {summary.gradableCount} bonnes réponses
-            </Text>
-          ) : (
-            <Text style={styles.scoreText}>Corrige tes réponses ci-dessous</Text>
-          )}
+          <Text style={styles.scoreText}>
+            {summary.correctCount} / {summary.gradableCount} bonnes réponses
+          </Text>
         </View>
       )}
 
@@ -254,20 +267,33 @@ export default function PublicQuizScreen() {
           return (
             <View key={question.id} style={styles.card}>
               <Text style={styles.cardLabel}>Question {index + 1}</Text>
-              <Text style={styles.questionText}>{question.question}</Text>
 
-              {question.type === 'multiple_choice' && (
+              {question.type === 'gap_fill' ? (
+                <GapFillSentence
+                  sentence={question.question}
+                  filledWith={answer?.type === 'gap_fill' ? answer.value : null}
+                />
+              ) : (
+                <Text style={styles.questionText}>{question.question}</Text>
+              )}
+
+              {(question.type === 'multiple_choice' || question.type === 'gap_fill') && (
                 <View style={styles.choiceList}>
                   {question.choices.map((choice, choiceIndex) => {
                     const isSelected =
-                      answer?.type === 'multiple_choice' && answer.value === choice;
+                      (answer?.type === 'multiple_choice' || answer?.type === 'gap_fill') &&
+                      answer.value === choice;
                     const isCorrectChoice = submitted && choice === question.correctAnswer;
                     const isWrongSelected = submitted && isSelected && !isCorrectChoice;
+                    const onPick =
+                      question.type === 'gap_fill'
+                        ? () => setGapFillAnswer(question.id, choice)
+                        : () => setMultipleChoiceAnswer(question.id, choice);
 
                     return (
                       <Pressable
                         key={choiceIndex}
-                        onPress={() => setMultipleChoiceAnswer(question.id, choice)}
+                        onPress={onPick}
                         disabled={submitted}
                         accessibilityRole="radio"
                         accessibilityState={{ selected: isSelected, disabled: submitted }}
@@ -322,30 +348,18 @@ export default function PublicQuizScreen() {
                 </View>
               )}
 
-              {question.type === 'short_answer' && (
-                <TextInput
-                  value={answer?.type === 'short_answer' ? answer.value : ''}
-                  onChangeText={(text) => setShortAnswer(question.id, text)}
-                  editable={!submitted}
-                  placeholder="Ta réponse"
-                  placeholderTextColor="#999999"
-                  selectionColor={COLORS.primary}
-                  style={[styles.shortAnswerInput, submitted && styles.shortAnswerInputDisabled]}
-                  accessibilityLabel={`Ta réponse à la question ${index + 1}`}
+              {question.type === 'matching' && (
+                <MatchingBlock
+                  pairs={question.pairs}
+                  value={answer?.type === 'matching' ? answer.value : {}}
+                  submitted={submitted}
+                  onPick={(pairIndex, rightLabel) =>
+                    setMatchingAnswer(question.id, pairIndex, rightLabel)
+                  }
                 />
               )}
 
-              {submitted && question.type === 'short_answer' && (
-                <View style={styles.correctionBox}>
-                  <Text style={styles.correctionLabel}>Réponse attendue</Text>
-                  <Text style={styles.correctionText}>{question.correctAnswer}</Text>
-                  <Text style={styles.correctionHint}>
-                    Compare ta réponse à la réponse attendue.
-                  </Text>
-                </View>
-              )}
-
-              {submitted && result && result.isCorrect !== null && (
+              {submitted && result && (
                 <Text style={result.isCorrect ? styles.feedbackCorrect : styles.feedbackWrong}>
                   {result.isCorrect ? 'Bonne réponse !' : 'Ce n’est pas ça.'}
                 </Text>
@@ -377,6 +391,97 @@ export default function PublicQuizScreen() {
       )}
       </ScrollView>
     </Screen>
+  );
+}
+
+// A "texte à trous" sentence with its blank shown inline: an empty slot before
+// the student answers, the chosen word once they pick one.
+function GapFillSentence({
+  sentence,
+  filledWith,
+}: {
+  sentence: string;
+  filledWith: string | null;
+}) {
+  const markerIndex = sentence.indexOf(BLANK_MARKER);
+  const before = markerIndex >= 0 ? sentence.slice(0, markerIndex) : sentence;
+  const after = markerIndex >= 0 ? sentence.slice(markerIndex + BLANK_MARKER.length) : '';
+
+  return (
+    <Text style={styles.questionText}>
+      {before}
+      <Text style={filledWith ? styles.gapFilled : styles.gapEmpty}>
+        {filledWith ? ` ${filledWith} ` : '  …  '}
+      </Text>
+      {after}
+    </Text>
+  );
+}
+
+// "Reliez les paires": each left item shows the shuffled right-side labels as
+// tappable chips. The student picks one per row. Scored all-or-nothing by
+// grading.ts — the per-row highlight after submitting is just to show which
+// choices were right.
+function MatchingBlock({
+  pairs,
+  value,
+  submitted,
+  onPick,
+}: {
+  pairs: MatchingPair[];
+  value: Record<string, string>;
+  submitted: boolean;
+  onPick: (pairIndex: number, rightLabel: string) => void;
+}) {
+  const shuffledRights = useMemo(() => {
+    const rights = pairs.map((p) => p.right);
+    for (let i = rights.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rights[i], rights[j]] = [rights[j], rights[i]];
+    }
+    return rights;
+  }, [pairs]);
+
+  return (
+    <View style={styles.matchingList}>
+      {pairs.map((pair, pairIndex) => {
+        const picked = value[String(pairIndex)];
+        return (
+          <View key={pairIndex} style={styles.matchingRow}>
+            <Text style={styles.matchingLeft}>{pair.left}</Text>
+            <View style={styles.matchingChoices}>
+              {shuffledRights.map((right) => {
+                const isSelected = picked === right;
+                const isCorrectChoice = submitted && right === pair.right;
+                const isWrongSelected = submitted && isSelected && !isCorrectChoice;
+                return (
+                  <Pressable
+                    key={right}
+                    onPress={() => onPick(pairIndex, right)}
+                    disabled={submitted}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected, disabled: submitted }}
+                    accessibilityLabel={`${pair.left} : ${right}`}
+                    style={[
+                      styles.matchingChip,
+                      isSelected && styles.choiceOptionSelected,
+                      isCorrectChoice && styles.choiceOptionCorrect,
+                      isWrongSelected && styles.choiceOptionWrong,
+                    ]}
+                  >
+                    <Text style={styles.choiceText}>
+                      {submitted && isCorrectChoice ? '✅ ' : ''}
+                      {isWrongSelected ? '❌ ' : ''}
+                      {right}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -476,6 +581,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1A1A1A',
   },
+  gapEmpty: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  gapFilled: {
+    color: COLORS.primaryPressed,
+    fontWeight: '700',
+  },
   choiceList: {
     gap: 8,
   },
@@ -507,6 +621,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  matchingList: {
+    gap: 14,
+  },
+  matchingRow: {
+    gap: 8,
+  },
+  matchingLeft: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  matchingChoices: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  matchingChip: {
+    borderWidth: 2,
+    borderColor: '#DDDDDD',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+  },
   trueFalseOption: {
     flex: 1,
     borderWidth: 2,
@@ -515,41 +653,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-  },
-  shortAnswerInput: {
-    borderWidth: 2,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#1A1A1A',
-    backgroundColor: '#FFFFFF',
-  },
-  shortAnswerInputDisabled: {
-    backgroundColor: '#F0F0F0',
-    color: '#777777',
-  },
-  correctionBox: {
-    backgroundColor: '#FFF7E6',
-    borderRadius: 10,
-    padding: 12,
-    gap: 4,
-  },
-  correctionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#9A6B00',
-    textTransform: 'uppercase',
-  },
-  correctionText: {
-    fontSize: 15,
-    color: '#1A1A1A',
-    fontWeight: '600',
-  },
-  correctionHint: {
-    fontSize: 13,
-    color: '#6B5300',
   },
   feedbackCorrect: {
     fontSize: 14,

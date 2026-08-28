@@ -60,12 +60,25 @@ const RESPONSE_JSON_SCHEMA = {
           type: 'object',
           additionalProperties: false,
           properties: {
-            type: { type: 'string', enum: ['multiple_choice', 'true_false', 'short_answer'] },
+            type: {
+              type: 'string',
+              enum: ['multiple_choice', 'true_false', 'gap_fill', 'matching'],
+            },
             question: { type: 'string' },
             explanation: { type: 'string' },
             sourceEvidence: { type: 'string' },
             choices: { type: ['array', 'null'], items: { type: 'string' } },
             correctAnswer: { type: 'string' },
+            // matching only; null otherwise.
+            pairs: {
+              type: ['array', 'null'],
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: { left: { type: 'string' }, right: { type: 'string' } },
+                required: ['left', 'right'],
+              },
+            },
           },
           required: [
             'type',
@@ -74,6 +87,7 @@ const RESPONSE_JSON_SCHEMA = {
             'sourceEvidence',
             'choices',
             'correctAnswer',
+            'pairs',
           ],
         },
       },

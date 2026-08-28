@@ -1,12 +1,13 @@
 // Exercise (quiz) configuration options. Centralized so the create-exercise
 // form and the future AI generation schema share one definition — see
 // CLAUDE.md §19 and §46.
-export type QuizType = 'multiple_choice' | 'true_false' | 'short_answer' | 'mixed';
+export type QuizType = 'multiple_choice' | 'true_false' | 'gap_fill' | 'matching' | 'mixed';
 
 export const EXERCISE_TYPES: { value: QuizType; label: string }[] = [
   { value: 'multiple_choice', label: 'QCM' },
   { value: 'true_false', label: 'Vrai / Faux' },
-  { value: 'short_answer', label: 'Réponse courte' },
+  { value: 'gap_fill', label: 'Texte à trous' },
+  { value: 'matching', label: 'Reliez les paires' },
   { value: 'mixed', label: 'Mixte' },
 ];
 

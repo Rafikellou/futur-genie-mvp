@@ -20,7 +20,7 @@ export default function PrivacyScreen() {
         </Pressable>
 
         <Text style={styles.title}>Politique de confidentialité</Text>
-        <Text style={styles.updated}>Dernière mise à jour : 26 août 2026</Text>
+        <Text style={styles.updated}>Dernière mise à jour : 28 août 2026</Text>
 
         <Text style={styles.paragraph}>
           Futur Génie aide les enseignants à créer des devoirs à partir d’une photo de leçon.
@@ -30,7 +30,14 @@ export default function PrivacyScreen() {
 
         <Section title="Ce que nous collectons sur l’enseignant">
           <Bullet>Adresse e-mail et mot de passe, pour la connexion au compte.</Bullet>
-          <Bullet>Nom affiché (facultatif), pour personnaliser l’application.</Bullet>
+          <Bullet>
+            Civilité, prénom et nom, pour identifier l’enseignant et afficher son nom aux élèves sur
+            le devoir partagé.
+          </Bullet>
+          <Bullet>
+            Nom et code postal de l’école, ainsi que le niveau de la classe, pour adapter
+            l’application et mieux comprendre qui l’utilise.
+          </Bullet>
           <Bullet>
             Les devoirs créés (titre, questions, réponses), rattachés au compte pour pouvoir les
             retrouver et les partager.

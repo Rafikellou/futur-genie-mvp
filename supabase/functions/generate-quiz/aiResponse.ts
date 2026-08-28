@@ -4,7 +4,7 @@
 // than silently accepted (CLAUDE.md §22/§24).
 import { z } from 'zod';
 
-import { QuizDataSchema, type QuizData } from '../../../shared/domain/quiz.ts';
+import { BLANK_MARKER, QuizDataSchema, type QuizData } from '../../../shared/domain/quiz.ts';
 import { LESSON_MODES, type LessonMode } from '../../../shared/domain/lessonMode.ts';
 import { GenerationError } from './errors.ts';
 
@@ -14,16 +14,24 @@ import { GenerationError } from './errors.ts';
 // question type are `null` rather than omitted, because OpenAI's strict
 // structured-output mode requires every declared property to be present.
 export const WireQuestionSchema = z.object({
-  type: z.enum(['multiple_choice', 'true_false', 'short_answer']),
+  type: z.enum(['multiple_choice', 'true_false', 'gap_fill', 'matching']),
+  // For gap_fill: the sentence to complete, containing the blank written as
+  // "____" (BLANK_MARKER).
   question: z.string().min(1),
   explanation: z.string().min(1),
   sourceEvidence: z.string().min(1),
-  // multiple_choice only; null otherwise.
+  // multiple_choice / gap_fill: the list of choices. null for true_false and
+  // matching.
   choices: z.array(z.string().min(1)).nullable(),
-  // multiple_choice/short_answer: the answer text. true_false: the French
-  // literal "vrai" or "faux" — kept as a plain string so every wire field
-  // has a single JSON type (see prompt.ts rule 8).
-  correctAnswer: z.string().min(1),
+  // multiple_choice / gap_fill: the answer text (one of `choices`).
+  // true_false: the French literal "vrai" or "faux".
+  // matching: empty (the answer key is `pairs`). Not `.min(1)` for that reason
+  // — normalizeQuestion enforces the real per-type rules.
+  correctAnswer: z.string(),
+  // matching only: the left/right pairs that are the answer key. null otherwise.
+  pairs: z
+    .array(z.object({ left: z.string().min(1), right: z.string().min(1) }))
+    .nullable(),
 });
 
 export type WireQuestion = z.infer<typeof WireQuestionSchema>;
@@ -85,13 +93,54 @@ function normalizeQuestion(wire: WireQuestion) {
         correctAnswer: normalized === 'vrai',
       };
     }
-    case 'short_answer': {
+    case 'gap_fill': {
+      if (
+        !wire.choices ||
+        wire.choices.length < 2 ||
+        wire.choices.length > 4 ||
+        !wire.choices.includes(wire.correctAnswer)
+      ) {
+        throw new GenerationError(
+          'invalid_ai_output',
+          'gap_fill question missing 2-4 choices including correctAnswer'
+        );
+      }
+      if (!wire.question.includes(BLANK_MARKER)) {
+        throw new GenerationError(
+          'invalid_ai_output',
+          `gap_fill question must contain the blank marker "${BLANK_MARKER}"`
+        );
+      }
       return {
-        type: 'short_answer' as const,
+        type: 'gap_fill' as const,
         question: wire.question,
         explanation: wire.explanation,
         sourceEvidence: wire.sourceEvidence,
+        choices: wire.choices,
         correctAnswer: wire.correctAnswer,
+      };
+    }
+    case 'matching': {
+      const pairs = wire.pairs ?? [];
+      const lefts = pairs.map((p) => p.left);
+      const rights = pairs.map((p) => p.right);
+      if (
+        pairs.length < 2 ||
+        pairs.length > 4 ||
+        new Set(lefts).size !== lefts.length ||
+        new Set(rights).size !== rights.length
+      ) {
+        throw new GenerationError(
+          'invalid_ai_output',
+          'matching question needs 2-4 pairs with distinct left and right values'
+        );
+      }
+      return {
+        type: 'matching' as const,
+        question: wire.question,
+        explanation: wire.explanation,
+        sourceEvidence: wire.sourceEvidence,
+        pairs,
       };
     }
   }

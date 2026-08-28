@@ -25,7 +25,7 @@ Deno.test('buildTaskPrompt includes the teacher-selected parameters', () => {
 });
 
 Deno.test('buildTaskPrompt injects the calibration notes for the requested grade only', () => {
-  const ce2 = buildTaskPrompt({ grade: 'CE2', subject: 'mathematiques', quizType: 'short_answer', questionCount: 10 });
+  const ce2 = buildTaskPrompt({ grade: 'CE2', subject: 'mathematiques', quizType: 'mixed', questionCount: 10 });
   assert(ce2.includes('Calibration notes for CE2'));
   // A concrete CE2 anchor from the card, and nothing from another grade's card.
   assert(ce2.includes('10 000'));
@@ -40,7 +40,7 @@ Deno.test('buildTaskPrompt bounds a teacher instruction instead of merging it si
   const prompt = buildTaskPrompt({
     grade: 'CM2',
     subject: 'histoire',
-    quizType: 'short_answer',
+    quizType: 'mixed',
     questionCount: 5,
     teacherInstruction: 'Insiste sur les dates.',
   });
@@ -76,6 +76,7 @@ function validAiResponse(): AiQuizResponse {
         sourceEvidence: "L'eau devient solide à 0 °C.",
         choices: ['0 °C', '10 °C', '100 °C'],
         correctAnswer: '0 °C',
+        pairs: null,
       },
       {
         type: 'true_false',
@@ -84,14 +85,16 @@ function validAiResponse(): AiQuizResponse {
         sourceEvidence: "L'eau devient gazeuse (elle bout) à 100 °C.",
         choices: null,
         correctAnswer: 'vrai',
+        pairs: null,
       },
       {
-        type: 'short_answer',
+        type: 'multiple_choice',
         question: "Comment s'appelle l'état gazeux de l'eau ?",
         explanation: 'La leçon nomme cet état "vapeur d’eau".',
         sourceEvidence: "À l'état gazeux, l'eau est appelée vapeur d'eau.",
-        choices: null,
+        choices: ["vapeur d'eau", 'glace', 'buée'],
         correctAnswer: "vapeur d'eau",
+        pairs: null,
       },
     ],
   });
@@ -142,6 +145,79 @@ Deno.test('toQuizData rejects a true_false answer that is not "vrai"/"faux"', ()
 
   const err = assertThrows(
     () => toQuizData(raw, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' }),
+    GenerationError
+  );
+  assertEquals(err.code, 'invalid_ai_output');
+});
+
+Deno.test('toQuizData accepts a well-formed gap_fill question and rejects one with no blank marker', () => {
+  const good = validAiResponse();
+  good.questions.push({
+    type: 'gap_fill',
+    question: "L'eau bout à ____ °C.",
+    explanation: "La leçon indique que l'eau bout à 100 °C.",
+    sourceEvidence: "L'eau bout à 100 °C.",
+    choices: ['0', '50', '100'],
+    correctAnswer: '100',
+    pairs: null,
+  });
+
+  const quiz = toQuizData(good, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' });
+  const gap = quiz.questions[quiz.questions.length - 1];
+  assert(gap.type === 'gap_fill');
+  assertEquals(gap.correctAnswer, '100');
+
+  const bad = validAiResponse();
+  bad.questions.push({
+    type: 'gap_fill',
+    question: "L'eau bout à cent degrés.",
+    explanation: 'x',
+    sourceEvidence: 'x',
+    choices: ['0', '50', '100'],
+    correctAnswer: '100',
+    pairs: null,
+  });
+  const err = assertThrows(
+    () => toQuizData(bad, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' }),
+    GenerationError
+  );
+  assertEquals(err.code, 'invalid_ai_output');
+});
+
+Deno.test('toQuizData accepts a matching question and rejects one with duplicate right values', () => {
+  const good = validAiResponse();
+  good.questions.push({
+    type: 'matching',
+    question: 'Relie chaque état à sa température.',
+    explanation: 'x',
+    sourceEvidence: 'x',
+    choices: null,
+    correctAnswer: '',
+    pairs: [
+      { left: 'Solide', right: '0 °C' },
+      { left: 'Gazeux', right: '100 °C' },
+    ],
+  });
+  const quiz = toQuizData(good, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' });
+  const matching = quiz.questions[quiz.questions.length - 1];
+  assert(matching.type === 'matching');
+  assertEquals(matching.pairs.length, 2);
+
+  const bad = validAiResponse();
+  bad.questions.push({
+    type: 'matching',
+    question: 'Relie.',
+    explanation: 'x',
+    sourceEvidence: 'x',
+    choices: null,
+    correctAnswer: '',
+    pairs: [
+      { left: 'A', right: 'même' },
+      { left: 'B', right: 'même' },
+    ],
+  });
+  const err = assertThrows(
+    () => toQuizData(bad, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' }),
     GenerationError
   );
   assertEquals(err.code, 'invalid_ai_output');
@@ -212,28 +288,37 @@ function mathQuiz(questions: QuizData['questions']): QuizData {
     title: 'Additions',
     grade: 'CE2',
     subject: 'mathematiques',
-    quizType: 'short_answer',
+    quizType: 'multiple_choice',
     instructions: 'Calcule.',
     warnings: [],
     questions,
   };
 }
 
+// A calculation question as a QCM — stripWrongArithmetic reads only its
+// `question` text and `correctAnswer`, exactly as before.
+function calcQuestion(id: string, question: string, correctAnswer: string): QuizData['questions'][number] {
+  return {
+    id,
+    type: 'multiple_choice',
+    question,
+    explanation: '',
+    sourceEvidence: '',
+    choices: [correctAnswer, 'autre'],
+    correctAnswer,
+  };
+}
+
 Deno.test('stripWrongArithmetic removes only the wrong question and adds one warning', () => {
   const quiz = stripWrongArithmetic(
-    mathQuiz([
-      { id: 'q1', type: 'short_answer', question: '12 + 9 = ?', explanation: '', sourceEvidence: '', correctAnswer: '21' },
-      { id: 'q2', type: 'short_answer', question: '25 + 25 = ?', explanation: '', sourceEvidence: '', correctAnswer: '40' },
-    ])
+    mathQuiz([calcQuestion('q1', '12 + 9 = ?', '21'), calcQuestion('q2', '25 + 25 = ?', '40')])
   );
   assertEquals(quiz.questions.map((q) => q.id), ['q1']);
   assertEquals(quiz.warnings.length, 1);
 });
 
 Deno.test('stripWrongArithmetic leaves non-mathematics quizzes untouched', () => {
-  const quiz = mathQuiz([
-    { id: 'q1', type: 'short_answer', question: '2 + 2 = ?', explanation: '', sourceEvidence: '', correctAnswer: '5' },
-  ]);
+  const quiz = mathQuiz([calcQuestion('q1', '2 + 2 = ?', '5')]);
   quiz.subject = 'francais';
   assertEquals(stripWrongArithmetic(quiz).questions.length, 1);
 });

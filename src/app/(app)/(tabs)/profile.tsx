@@ -1,47 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { TeacherDetailsForm } from '@/features/auth/TeacherDetailsForm';
 import { COLORS } from '@/theme/colors';
 
 export default function ProfileScreen() {
-  const { session, profile, updateDisplayName, signOut, deleteAccount } = useAuth();
-  const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
-  const [isSaving, setIsSaving] = useState(false);
+  const { session, profile, updateTeacherDetails, signOut, deleteAccount } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setDisplayName(profile?.displayName ?? '');
-  }, [profile?.displayName]);
-
-  const hasChanges = displayName.trim() !== (profile?.displayName ?? '') && displayName.trim().length > 0;
-
-  async function handleSave() {
-    setError(null);
-    setSaved(false);
-    setIsSaving(true);
-    try {
-      await updateDisplayName(displayName.trim());
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
-    } finally {
-      setIsSaving(false);
-    }
-  }
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -82,95 +60,92 @@ export default function ProfileScreen() {
   }
 
   return (
-    <Screen style={styles.container}>
-      <Text style={styles.title}>Mon profil</Text>
+    <Screen style={styles.screen}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Mon profil</Text>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Adresse e-mail</Text>
-        <Text style={styles.readOnlyValue}>{session?.user.email}</Text>
-      </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Adresse e-mail</Text>
+          <Text style={styles.readOnlyValue}>{session?.user.email}</Text>
+        </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Nom affiché</Text>
-        <TextInput
-          style={styles.input}
-          value={displayName}
-          onChangeText={(value) => {
-            setDisplayName(value);
-            setSaved(false);
+        <TeacherDetailsForm
+          initial={{
+            title: profile?.title ?? undefined,
+            firstName: profile?.firstName ?? undefined,
+            lastName: profile?.lastName ?? undefined,
+            schoolName: profile?.schoolName ?? undefined,
+            schoolPostalCode: profile?.schoolPostalCode ?? undefined,
+            classGrade: profile?.classGrade ?? undefined,
           }}
-          placeholder="Mme Dupont"
-          accessibilityLabel="Nom affiché"
+          submitLabel="Enregistrer"
+          successMessage="Profil mis à jour."
+          onSubmit={updateTeacherDetails}
         />
-      </View>
 
-      {error ? (
-        <Text style={styles.error} accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : null}
-      {saved ? <Text style={styles.success}>Profil mis à jour.</Text> : null}
+        {error ? (
+          <Text style={styles.error} accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
 
-      <Pressable
-        style={[styles.button, !hasChanges && styles.buttonDisabled]}
-        onPress={handleSave}
-        disabled={!hasChanges || isSaving}
-        accessibilityRole="button"
-      >
-        {isSaving ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.buttonText}>Enregistrer</Text>
-        )}
-      </Pressable>
+        <Pressable
+          style={[styles.button, styles.signOutButton]}
+          onPress={handleSignOut}
+          disabled={isSigningOut}
+          accessibilityRole="button"
+        >
+          {isSigningOut ? (
+            <ActivityIndicator color="#B42318" />
+          ) : (
+            <Text style={styles.signOutButtonText}>Se déconnecter</Text>
+          )}
+        </Pressable>
 
-      <Pressable
-        style={[styles.button, styles.signOutButton]}
-        onPress={handleSignOut}
-        disabled={isSigningOut}
-        accessibilityRole="button"
-      >
-        {isSigningOut ? (
-          <ActivityIndicator color="#B42318" />
-        ) : (
-          <Text style={styles.signOutButtonText}>Se déconnecter</Text>
-        )}
-      </Pressable>
+        <Pressable
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          disabled={isDeleting}
+          accessibilityRole="button"
+        >
+          {isDeleting ? (
+            <ActivityIndicator color="#B42318" />
+          ) : (
+            <Text style={styles.deleteAccountButtonText}>Supprimer mon compte</Text>
+          )}
+        </Pressable>
 
-      <Pressable
-        style={styles.deleteAccountButton}
-        onPress={handleDeleteAccount}
-        disabled={isDeleting}
-        accessibilityRole="button"
-      >
-        {isDeleting ? (
-          <ActivityIndicator color="#B42318" />
-        ) : (
-          <Text style={styles.deleteAccountButtonText}>Supprimer mon compte</Text>
-        )}
-      </Pressable>
-
-      <Pressable onPress={() => router.push('/privacy')} accessibilityRole="link">
-        <Text style={styles.privacyLink}>Politique de confidentialité</Text>
-      </Pressable>
+        <Pressable onPress={() => router.push('/privacy')} accessibilityRole="link">
+          <Text style={styles.privacyLink}>Politique de confidentialité</Text>
+        </Pressable>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
+  },
+  content: {
     padding: 24,
-    gap: 12,
+    paddingBottom: 48,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   field: {
     gap: 6,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
@@ -182,36 +157,16 @@ const styles = StyleSheet.create({
     color: '#555555',
     paddingVertical: 12,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D0D5DD',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
   error: {
     color: '#B42318',
     fontSize: 14,
-  },
-  success: {
-    color: '#067647',
-    fontSize: 14,
+    marginTop: 8,
   },
   button: {
-    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
   signOutButton: {
     backgroundColor: '#FFFFFF',

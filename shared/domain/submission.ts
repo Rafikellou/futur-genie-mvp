@@ -5,7 +5,10 @@
 export type StudentAnswer =
   | { type: 'multiple_choice'; value: string | null }
   | { type: 'true_false'; value: boolean | null }
-  | { type: 'short_answer'; value: string };
+  | { type: 'gap_fill'; value: string | null }
+  // `value` maps each pair index (as a string key) to the right-side label
+  // the student picked for it. Empty until they start matching.
+  | { type: 'matching'; value: Record<string, string> };
 
 export type AnswerMap = Record<string, StudentAnswer>;
 

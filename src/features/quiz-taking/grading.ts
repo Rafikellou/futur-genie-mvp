@@ -5,7 +5,13 @@
 // Correction is entirely client-side: the correct answer already lives in
 // `public_quiz_data` (only hidden in the UI until submission). This is a
 // deliberate MVP tradeoff recorded in PROGRESS.md ("Correction élève") —
-// no submissions table, no server-side grading.
+// the submission row's score is still recomputed server-side by
+// submit_quiz_answers() (CLAUDE.md §48).
+//
+// Every question type is auto-gradable, so `gradableCount` always equals the
+// number of questions — a quiz score is simply "correct / total". A matching
+// question is scored all-or-nothing (every pair right, or the question is
+// wrong), so it too is worth exactly one point.
 import type { PublicQuestion } from '@shared/domain/quiz';
 import type { AnswerMap, StudentAnswer } from '@shared/domain/submission';
 
@@ -19,39 +25,40 @@ export function createEmptyAnswers(questions: PublicQuestion[]): AnswerMap {
   for (const question of questions) {
     if (question.type === 'multiple_choice') {
       answers[question.id] = { type: 'multiple_choice', value: null };
-    } else if (question.type === 'true_false') {
-      answers[question.id] = { type: 'true_false', value: null };
+    } else if (question.type === 'gap_fill') {
+      answers[question.id] = { type: 'gap_fill', value: null };
+    } else if (question.type === 'matching') {
+      answers[question.id] = { type: 'matching', value: {} };
     } else {
-      answers[question.id] = { type: 'short_answer', value: '' };
+      answers[question.id] = { type: 'true_false', value: null };
     }
   }
   return answers;
 }
 
-function isAnswered(answer: StudentAnswer | undefined): boolean {
+function isAnswered(question: PublicQuestion, answer: StudentAnswer | undefined): boolean {
   if (!answer) return false;
-  if (answer.type === 'short_answer') return answer.value.trim().length > 0;
+  if (question.type === 'matching' && answer.type === 'matching') {
+    return question.pairs.every((_, index) => Boolean(answer.value[String(index)]));
+  }
+  if (answer.type === 'matching') return false;
   return answer.value !== null;
 }
 
 export function areAllAnswered(questions: PublicQuestion[], answers: AnswerMap): boolean {
-  return questions.every((question) => isAnswered(answers[question.id]));
+  return questions.every((question) => isAnswered(question, answers[question.id]));
 }
 
 export type QuestionResult = {
   questionId: string;
-  // null: not auto-gradable (short_answer) — the student compares their own
-  // answer to the expected one instead of relying on fuzzy text matching
-  // (decision recorded in PROGRESS.md).
-  isCorrect: boolean | null;
+  isCorrect: boolean;
 };
 
 export type GradeSummary = {
   results: QuestionResult[];
   correctCount: number;
-  // Count of auto-gradable questions (multiple_choice + true_false).
-  // Short-answer questions are excluded from the score entirely rather than
-  // silently graded wrong/right by an unreliable text match.
+  // Always equal to the number of questions: every supported question type
+  // is auto-gradable.
   gradableCount: number;
 };
 
@@ -64,11 +71,19 @@ export function gradeQuiz(questions: PublicQuestion[], answers: AnswerMap): Grad
     if (question.type === 'true_false' && answer?.type === 'true_false') {
       return { questionId: question.id, isCorrect: answer.value === question.correctAnswer };
     }
-    return { questionId: question.id, isCorrect: null };
+    if (question.type === 'gap_fill' && answer?.type === 'gap_fill') {
+      return { questionId: question.id, isCorrect: answer.value === question.correctAnswer };
+    }
+    if (question.type === 'matching' && answer?.type === 'matching') {
+      const allPairsRight = question.pairs.every(
+        (pair, index) => answer.value[String(index)] === pair.right,
+      );
+      return { questionId: question.id, isCorrect: allPairsRight };
+    }
+    return { questionId: question.id, isCorrect: false };
   });
 
-  const gradable = results.filter((result) => result.isCorrect !== null);
-  const correctCount = gradable.filter((result) => result.isCorrect).length;
+  const correctCount = results.filter((result) => result.isCorrect).length;
 
-  return { results, correctCount, gradableCount: gradable.length };
+  return { results, correctCount, gradableCount: results.length };
 }

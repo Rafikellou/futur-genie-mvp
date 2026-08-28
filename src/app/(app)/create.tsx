@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { OptionChips } from '@/features/exercise-creation/components/OptionChips';
 import { Grade, GRADES } from '@shared/domain/grade';
 import { Subject, SUBJECTS } from '@shared/domain/subject';
@@ -19,7 +20,11 @@ const QUESTION_COUNT_CHOICES = QUESTION_COUNT_OPTIONS.map((count) => ({
 }));
 
 export default function CreateExerciseScreen() {
-  const [grade, setGrade] = useState<Grade | null>(null);
+  const { profile } = useAuth();
+  // Pre-selected from the teacher's class level (collected at onboarding) so
+  // the common case is one tap fewer — still freely changeable here for a
+  // double-niveau class or a devoir made for another level.
+  const [grade, setGrade] = useState<Grade | null>(profile?.classGrade ?? null);
   const [subject, setSubject] = useState<Subject | null>(null);
   const [quizType, setQuizType] = useState<QuizType | null>(null);
   const [questionCount, setQuestionCount] = useState<number | null>(null);

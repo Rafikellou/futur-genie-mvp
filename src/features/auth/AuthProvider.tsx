@@ -8,7 +8,12 @@ import {
   useState,
 } from 'react';
 
-import { mapProfileRow, Profile } from '@shared/domain/profile';
+import {
+  composeDisplayName,
+  mapProfileRow,
+  Profile,
+  TeacherDetails,
+} from '@shared/domain/profile';
 import { supabase } from '@shared/supabase/client';
 
 import { getAuthErrorMessage } from './authErrors';
@@ -17,7 +22,9 @@ type AuthContextValue = {
   // `undefined` while the initial session is still being restored from
   // storage; `null` once we know for certain there is no signed-in teacher.
   session: Session | null | undefined;
-  profile: Profile | null;
+  // `undefined` while the profile row is still being fetched for a known
+  // session; `null` once fetched and found missing (or no session).
+  profile: Profile | null | undefined;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (
@@ -26,7 +33,7 @@ type AuthContextValue = {
     displayName: string,
   ) => Promise<{ requiresEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
-  updateDisplayName: (displayName: string) => Promise<void>;
+  updateTeacherDetails: (details: TeacherDetails) => Promise<void>;
   deleteAccount: () => Promise<void>;
 };
 
@@ -35,7 +42,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, created_at, updated_at')
+    .select(
+      'id, display_name, title, first_name, last_name, school_name, school_postal_code, class_grade, created_at, updated_at',
+    )
     .eq('id', userId)
     .single();
 
@@ -51,7 +60,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -66,10 +75,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
+    if (session === undefined) return;
     if (!session) {
       setProfile(null);
       return;
     }
+    setProfile(undefined);
     fetchProfile(session.user.id).then(setProfile);
   }, [session]);
 
@@ -95,15 +106,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (error) throw new Error(getAuthErrorMessage(error));
   }, []);
 
-  const updateDisplayName = useCallback(
-    async (displayName: string) => {
+  const updateTeacherDetails = useCallback(
+    async (details: TeacherDetails) => {
       if (!session) return;
+      // The student-facing display name is derived here, never typed by the
+      // teacher — keeps the public quiz greeting and Home greeting in sync
+      // with the structured fields.
+      const displayName = composeDisplayName(details.title, details.lastName);
       const { error } = await supabase
         .from('profiles')
-        .update({ display_name: displayName })
+        .update({
+          display_name: displayName,
+          title: details.title,
+          first_name: details.firstName.trim(),
+          last_name: details.lastName.trim(),
+          school_name: details.schoolName.trim(),
+          school_postal_code: details.schoolPostalCode.trim(),
+          class_grade: details.classGrade,
+        })
         .eq('id', session.user.id);
       if (error) throw new Error(getAuthErrorMessage(error));
-      setProfile((current) => (current ? { ...current, displayName } : current));
+      // Re-read the row rather than patching local state: the (app) layout's
+      // onboarding gate keys off this value, so it must reflect exactly what
+      // the database now holds.
+      setProfile(await fetchProfile(session.user.id));
     },
     [session],
   );
@@ -126,7 +152,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signIn,
         signUp,
         signOut,
-        updateDisplayName,
+        updateTeacherDetails,
         deleteAccount,
       }}
     >

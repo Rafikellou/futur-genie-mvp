@@ -459,8 +459,15 @@ structurée, etc.).
 
 Plan validé avec l'utilisateur (3 phases). **Phase 1 implémentée.** **Phase
 2 démarrée** : les 5 fiches de calibration transversales (une par niveau)
-sont en place. Reste de la phase 2-3 : golden set + rubrique de difficulté
-à construire et à mesurer, fiches matière×niveau ciblées si nécessaire,
+sont en place.
+
+**Décision (utilisateur)** : abandon du « golden set » et de toute méthode
+empirique de mesure avant/après. On n'instrumente pas la qualité pédagogique
+par un jeu d'essai noté. L'évaluation reste qualitative : l'utilisateur
+regarde les quizs générés sur des leçons réelles et décide au jugé
+(fiches à ajuster, `luna` → `terra`, etc.).
+
+Reste possible pour la suite si besoin : fiches matière×niveau ciblées,
 capture du feedback enseignant, passe d'auto-révision.
 
 Contexte : le simple resserrement du prompt système (Milestone 6) n'avait
@@ -536,16 +543,11 @@ Non vérifié :
   `reasoning_effort` (le repli sur `gpt-4.1` couvre l'échec, mais à
   confirmer sur appareil).
 - Si `luna` suffit pour la difficulté perçue, ou s'il faut monter vers
-  `terra`.
-- Effet réel des fiches de calibration (les 5 fiches transversales) — à
-  mesurer avec le golden set une fois celui-ci construit.
-- Jeu d'évaluation pédagogique systématique (« golden set » : ~12-15
-  photos de leçons réelles + rubrique de notation, dont un critère
-  « bon niveau ») — **toujours pas construit**. C'est le prochain
-  livrable de la phase 2 : sans lui, on ne peut pas mesurer si les
-  fiches (ou un passage luna→terra) améliorent vraiment la difficulté.
-- Fiches matière×niveau (maths, français) — à créer **seulement** là où
-  la mesure montre que la fiche de niveau générique ne suffit pas.
+  `terra` — appréciation qualitative de l'utilisateur sur des leçons
+  réelles (pas de mesure chiffrée, cf. décision ci-dessus).
+- Effet réel des 5 fiches de calibration — même chose : jugé à l'usage.
+- Fiches matière×niveau (maths, français) — à créer seulement si les
+  fiches de niveau génériques se révèlent trop minces à l'usage.
 
 ## Milestone 7 — Publication et URL publique (détail)
 

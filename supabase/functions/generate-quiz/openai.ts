@@ -13,13 +13,26 @@ import { AiQuizResponseSchema, type AiQuizResponse } from './aiResponse.ts';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 // gpt-4o-mini was too weak for grade-level calibration and pedagogical
 // nuance (see PROGRESS.md, Milestone 6 — a real CE2 lesson kept producing
-// CP/CE1 questions). gpt-4.1 follows the multi-step instructions in
-// prompt.ts (classify the lesson, then apply a rule to fresh cases) far
-// more reliably. gpt-4o stays as the fallback: it is the model this
-// integration was originally validated against, so it is the safe landing
-// spot if the primary is unavailable or returns something unparseable.
-const PRIMARY_MODEL = 'gpt-4.1';
-const FALLBACK_MODEL = 'gpt-4o';
+// CP/CE1 questions). gpt-5.6-terra is a current mid-tier multimodal
+// reasoning model ($2/$12 per 1M tokens, 1M-token context, native image +
+// structured-output support): it actually works through the multi-step
+// instructions in prompt.ts (classify the lesson, then apply the rule to
+// fresh cases, calibrate to the page) rather than defaulting to the
+// safest/easiest question. gpt-4.1 is the fallback — previous-generation,
+// non-reasoning, but a known-good multimodal model on this same endpoint,
+// so it is the safe landing spot if the primary is unavailable (e.g. the
+// account has no GPT-5 access) or returns something unparseable.
+const PRIMARY_MODEL = 'gpt-5.6-terra';
+const FALLBACK_MODEL = 'gpt-4.1';
+
+// GPT-5 models are reasoning models; "low" keeps latency inside
+// REQUEST_TIMEOUT_MS for a single-image request while still giving the
+// model enough room to follow the classification/calibration steps. Older
+// models (gpt-4.1/gpt-4o) reject this parameter, so it is only sent for
+// gpt-5*.
+function reasoningEffortFor(model: string): 'low' | undefined {
+  return model.startsWith('gpt-5') ? 'low' : undefined;
+}
 // Generous enough for a vision request; leaves margin under the platform's
 // function execution limit so a slow model call surfaces as our own
 // model_timeout rather than an opaque platform-level failure.
@@ -88,6 +101,7 @@ export type GenerateParams = {
 async function callModel(model: string, params: GenerateParams, apiKey: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const reasoningEffort = reasoningEffortFor(model);
 
   let response: Response;
   try {
@@ -113,6 +127,7 @@ async function callModel(model: string, params: GenerateParams, apiKey: string):
           },
         ],
         response_format: { type: 'json_schema', json_schema: RESPONSE_JSON_SCHEMA },
+        ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
       }),
       signal: controller.signal,
     });

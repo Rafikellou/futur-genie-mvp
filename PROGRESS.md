@@ -41,13 +41,14 @@ conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
   constantes de domaine, schémas Zod, client Supabase) + `supabase/`
   (migrations + Edge Functions).
 - **Auth** : Supabase Auth, email + mot de passe.
-- **LLM** : OpenAI, `gpt-4.1` par défaut (`gpt-4o` en repli si le modèle
-  primaire est indisponible ou renvoie une sortie non exploitable),
+- **LLM** : OpenAI, `gpt-5.6-terra` par défaut (`gpt-4.1` en repli si le
+  modèle primaire est indisponible ou renvoie une sortie non exploitable),
   derrière une fonction `generateQuizFromLesson()`. `gpt-4o-mini` (défaut
   historique) abandonné : trop faible pour la calibration de difficulté par
   niveau et la nuance pédagogique (voir « Fiabilisation des quizs » plus
-  bas). Passage à Claude envisagé comme étape suivante (nécessite un secret
-  `ANTHROPIC_API_KEY`).
+  bas). `gpt-5.6-terra` = modèle multimodal à raisonnement, milieu de gamme
+  actuel ($2/$12 par 1M tokens), `reasoning_effort: low` pour tenir dans le
+  budget de latence.
 - **Image de leçon** : compressée côté client, envoyée en base64 à l'Edge
   Function, jamais stockée (ni Storage ni disque).
 - **Publication** : RPC Postgres `publish_quiz` (pas d'Edge Function —
@@ -464,10 +465,14 @@ le modèle, et la distinction règle/mémoire laissée implicite.
 
 Implémenté :
 
-- **Modèle** : primaire `gpt-4o-mini` → `gpt-4.1` ; repli `gpt-4o`
-  déclenché désormais aussi sur `model_unavailable` (pas seulement sur une
-  sortie non parsable), pour que le changement d'ID de modèle ne casse pas
-  la génération si le compte n'y a pas accès.
+- **Modèle** : primaire `gpt-4o-mini` → `gpt-5.6-terra` (multimodal à
+  raisonnement, milieu de gamme actuel) ; repli `gpt-4o` → `gpt-4.1`
+  (génération précédente, non-raisonnement, mais éprouvé sur ce même
+  endpoint). Le repli se déclenche désormais aussi sur `model_unavailable`
+  — donc si le compte OpenAI n'a pas accès à GPT-5, la génération bascule
+  proprement sur `gpt-4.1` au lieu d'échouer. `reasoning_effort: low`
+  envoyé uniquement aux modèles `gpt-5*` (les anciens rejettent ce
+  paramètre).
 - **Classification règle vs mémoire** (`shared/domain/lessonMode.ts` :
   `generative` / `factual` / `mixed`). Le prompt système impose de classer
   la leçon *avant* d'écrire les questions, et autorise explicitement — pour
@@ -507,8 +512,10 @@ Non vérifié :
 - Effet réel sur la difficulté perçue par une enseignante sur une leçon CE2
   réelle (le point de départ du sujet). À tester sur appareil après
   déploiement (`npx supabase functions deploy generate-quiz`).
-- Disponibilité de `gpt-4.1` sur le compte OpenAI (le repli couvre le cas,
-  mais à confirmer).
+- Disponibilité de `gpt-5.6-terra` sur le compte OpenAI, et son bon
+  fonctionnement sur l'endpoint `chat/completions` avec `json_schema` +
+  `reasoning_effort` (le repli sur `gpt-4.1` couvre l'échec, mais à
+  confirmer sur appareil).
 - Jeu d'évaluation pédagogique systématique — toujours pas construit
   (prérequis des phases 2-3).
 

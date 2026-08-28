@@ -11,7 +11,14 @@ import { SYSTEM_PROMPT, buildTaskPrompt } from './prompt.ts';
 import { AiQuizResponseSchema, type AiQuizResponse } from './aiResponse.ts';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const PRIMARY_MODEL = 'gpt-4o-mini';
+// gpt-4o-mini was too weak for grade-level calibration and pedagogical
+// nuance (see PROGRESS.md, Milestone 6 — a real CE2 lesson kept producing
+// CP/CE1 questions). gpt-4.1 follows the multi-step instructions in
+// prompt.ts (classify the lesson, then apply a rule to fresh cases) far
+// more reliably. gpt-4o stays as the fallback: it is the model this
+// integration was originally validated against, so it is the safe landing
+// spot if the primary is unavailable or returns something unparseable.
+const PRIMARY_MODEL = 'gpt-4.1';
 const FALLBACK_MODEL = 'gpt-4o';
 // Generous enough for a vision request; leaves margin under the platform's
 // function execution limit so a slow model call surfaces as our own
@@ -28,6 +35,7 @@ const RESPONSE_JSON_SCHEMA = {
     properties: {
       readable: { type: 'boolean' },
       sufficientContent: { type: 'boolean' },
+      lessonMode: { type: 'string', enum: ['generative', 'factual', 'mixed'] },
       title: { type: 'string' },
       instructions: { type: 'string' },
       warnings: { type: 'array', items: { type: 'string' } },
@@ -55,7 +63,15 @@ const RESPONSE_JSON_SCHEMA = {
         },
       },
     },
-    required: ['readable', 'sufficientContent', 'title', 'instructions', 'warnings', 'questions'],
+    required: [
+      'readable',
+      'sufficientContent',
+      'lessonMode',
+      'title',
+      'instructions',
+      'warnings',
+      'questions',
+    ],
   },
 };
 
@@ -139,10 +155,14 @@ function parseAiResponse(content: string): AiQuizResponse {
   return result.data;
 }
 
-// One retry on a fallback model if the primary model's output doesn't
-// parse/validate — cheap insurance against an occasional malformed
-// response, not a general retry-on-any-error loop (CLAUDE.md §55: retries
-// are a real cost, so this only fires for the one recoverable case).
+// One retry on the fallback model if the primary model's output doesn't
+// parse/validate, or if the primary model itself is unavailable (e.g. the
+// account cannot reach that model id). Not a general retry-on-any-error
+// loop (CLAUDE.md §55: retries are a real cost) — a timeout still fails
+// straight through, since retrying a slow call would blow the request
+// budget.
+const FALLBACK_TRIGGER_CODES = new Set(['invalid_ai_output', 'model_unavailable']);
+
 export async function generateQuizFromLesson(
   params: GenerateParams,
   apiKey: string
@@ -151,7 +171,7 @@ export async function generateQuizFromLesson(
     const content = await callModel(PRIMARY_MODEL, params, apiKey);
     return parseAiResponse(content);
   } catch (err) {
-    if (err instanceof GenerationError && err.code === 'invalid_ai_output') {
+    if (err instanceof GenerationError && FALLBACK_TRIGGER_CODES.has(err.code)) {
       const content = await callModel(FALLBACK_MODEL, params, apiKey);
       return parseAiResponse(content);
     }

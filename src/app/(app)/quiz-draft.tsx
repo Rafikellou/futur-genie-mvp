@@ -17,6 +17,7 @@ import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS } from '@shared/domain/subject';
 import { EXERCISE_TYPES } from '@shared/domain/exercise';
 import { QuizDataSchema, type Question, type QuizData } from '@shared/domain/quiz';
+import { LESSON_MODE_LABELS, LESSON_MODES, type LessonMode } from '@shared/domain/lessonMode';
 import { COLORS } from '@/theme/colors';
 
 // Editable preview of the AI-generated draft (Milestone 6), now wired to
@@ -27,8 +28,12 @@ import { COLORS } from '@/theme/colors';
 // pressed — there is no separate "save draft" step (see PROGRESS.md,
 // Milestone 6 decision).
 export default function QuizDraftScreen() {
-  const { quiz: quizParam } = useLocalSearchParams<{ quiz: string }>();
+  const { quiz: quizParam, lessonMode: lessonModeParam } = useLocalSearchParams<{
+    quiz: string;
+    lessonMode?: string;
+  }>();
   const [quiz, setQuiz] = useState<QuizData | null>(() => parseQuiz(quizParam));
+  const lessonMode = parseLessonMode(lessonModeParam);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
 
@@ -189,6 +194,12 @@ export default function QuizDraftScreen() {
           multiline
         />
 
+        {lessonMode && (
+          <View style={styles.lessonModeBox}>
+            <Text style={styles.lessonModeText}>{LESSON_MODE_LABELS[lessonMode]}</Text>
+          </View>
+        )}
+
         {currentQuiz.warnings.length > 0 && (
           <View style={styles.warningBox}>
             {currentQuiz.warnings.map((warning, index) => (
@@ -305,6 +316,10 @@ function makeEmptyQuestion(type: Question['type']): Question {
     case 'short_answer':
       return { ...base, type, correctAnswer: '' };
   }
+}
+
+function parseLessonMode(raw: string | undefined): LessonMode | null {
+  return raw && (LESSON_MODES as string[]).includes(raw) ? (raw as LessonMode) : null;
 }
 
 function parseQuiz(raw: string | undefined): QuizData | null {
@@ -511,6 +526,16 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginBottom: 16,
     padding: 0,
+  },
+  lessonModeBox: {
+    backgroundColor: '#EEF1FF',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  lessonModeText: {
+    color: '#3B3F73',
+    fontSize: 14,
   },
   warningBox: {
     backgroundColor: '#FFF6DF',

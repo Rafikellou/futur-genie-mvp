@@ -7,6 +7,8 @@ import { assert, assertEquals, assertThrows } from 'jsr:@std/assert@1';
 import { buildTaskPrompt } from './prompt.ts';
 import { AiQuizResponseSchema, toQuizData, type AiQuizResponse } from './aiResponse.ts';
 import { GenerationError } from './errors.ts';
+import { hasWrongArithmeticAnswer, stripWrongArithmetic } from './checkArithmetic.ts';
+import type { QuizData } from '../../../shared/domain/quiz.ts';
 
 Deno.test('buildTaskPrompt includes the teacher-selected parameters', () => {
   const prompt = buildTaskPrompt({
@@ -50,6 +52,7 @@ function validAiResponse(): AiQuizResponse {
   return AiQuizResponseSchema.parse({
     readable: true,
     sufficientContent: true,
+    lessonMode: 'factual',
     title: "Les états de l'eau",
     instructions: 'Réponds aux questions suivantes.',
     warnings: [],
@@ -134,6 +137,20 @@ Deno.test('toQuizData rejects a true_false answer that is not "vrai"/"faux"', ()
 
 Deno.test('AiQuizResponseSchema rejects a payload missing the readability flags', () => {
   const result = AiQuizResponseSchema.safeParse({
+    lessonMode: 'factual',
+    title: 'x',
+    instructions: 'x',
+    warnings: [],
+    questions: [],
+  });
+  assertEquals(result.success, false);
+});
+
+Deno.test('AiQuizResponseSchema rejects an unknown lessonMode', () => {
+  const result = AiQuizResponseSchema.safeParse({
+    readable: true,
+    sufficientContent: true,
+    lessonMode: 'memorisation',
     title: 'x',
     instructions: 'x',
     warnings: [],
@@ -146,6 +163,7 @@ Deno.test('a lesson reported as unreadable carries no questions to validate', ()
   const raw = AiQuizResponseSchema.parse({
     readable: false,
     sufficientContent: false,
+    lessonMode: 'factual',
     title: '',
     instructions: '',
     warnings: ['Photo illisible.'],
@@ -155,4 +173,55 @@ Deno.test('a lesson reported as unreadable carries no questions to validate', ()
   // calling toQuizData — this only documents the shape it must handle.
   assertEquals(raw.readable, false);
   assertEquals(raw.questions.length, 0);
+});
+
+Deno.test('hasWrongArithmeticAnswer flags a plainly wrong sum and clears a correct one', () => {
+  assert(hasWrongArithmeticAnswer('Combien font 47 + 36 ?', '73'));
+  assert(!hasWrongArithmeticAnswer('Combien font 47 + 36 ?', '83'));
+  assert(hasWrongArithmeticAnswer('128 − 45 = ?', '93'));
+  assert(!hasWrongArithmeticAnswer('128 − 45 = ?', '83'));
+  assert(hasWrongArithmeticAnswer('Calcule 6 × 7.', '42 bonbons') === false); // answer not a clean number
+  assert(!hasWrongArithmeticAnswer('Calcule 6 × 7.', '42'));
+});
+
+Deno.test('hasWrongArithmeticAnswer stays out of anything ambiguous', () => {
+  // Two calculations in one question — cannot tell which the answer is for.
+  assert(!hasWrongArithmeticAnswer('Compare 2 + 3 et 4 + 1.', '5'));
+  // A range, not a subtraction.
+  assert(!hasWrongArithmeticAnswer('Écris les nombres de 10 à 20.', '11'));
+  // Non-numeric answer.
+  assert(!hasWrongArithmeticAnswer('Combien font 2 + 2 ?', 'quatre'));
+  // Numbers with a space thousands separator are still read correctly.
+  assert(hasWrongArithmeticAnswer('1 200 + 300 = ?', '1 400'));
+});
+
+function mathQuiz(questions: QuizData['questions']): QuizData {
+  return {
+    title: 'Additions',
+    grade: 'CE2',
+    subject: 'mathematiques',
+    quizType: 'short_answer',
+    instructions: 'Calcule.',
+    warnings: [],
+    questions,
+  };
+}
+
+Deno.test('stripWrongArithmetic removes only the wrong question and adds one warning', () => {
+  const quiz = stripWrongArithmetic(
+    mathQuiz([
+      { id: 'q1', type: 'short_answer', question: '12 + 9 = ?', explanation: '', sourceEvidence: '', correctAnswer: '21' },
+      { id: 'q2', type: 'short_answer', question: '25 + 25 = ?', explanation: '', sourceEvidence: '', correctAnswer: '40' },
+    ])
+  );
+  assertEquals(quiz.questions.map((q) => q.id), ['q1']);
+  assertEquals(quiz.warnings.length, 1);
+});
+
+Deno.test('stripWrongArithmetic leaves non-mathematics quizzes untouched', () => {
+  const quiz = mathQuiz([
+    { id: 'q1', type: 'short_answer', question: '2 + 2 = ?', explanation: '', sourceEvidence: '', correctAnswer: '5' },
+  ]);
+  quiz.subject = 'francais';
+  assertEquals(stripWrongArithmetic(quiz).questions.length, 1);
 });

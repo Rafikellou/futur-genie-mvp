@@ -16,6 +16,7 @@ import type { GenerationErrorCode } from '../../../shared/domain/generationError
 import { GenerationError, statusForErrorCode } from './errors.ts';
 import { generateQuizFromLesson } from './openai.ts';
 import { toQuizData } from './aiResponse.ts';
+import { stripWrongArithmetic } from './checkArithmetic.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -120,11 +121,16 @@ Deno.serve(async (req: Request) => {
     // handing the teacher an empty quiz.
     if (aiResponse.questions.length === 0) return errorResponse('invalid_ai_output');
 
-    const quiz = toQuizData(aiResponse, { grade, subject, quizType });
+    // Deterministic post-check: drop any question whose arithmetic is
+    // provably wrong before the teacher ever sees it (CLAUDE.md §26). Only
+    // acts on mathematics quizzes and only on unambiguous calculations.
+    const quiz = stripWrongArithmetic(toQuizData(aiResponse, { grade, subject, quizType }));
+    if (quiz.questions.length === 0) return errorResponse('invalid_ai_output');
+
     console.log(
-      `generate-quiz: ok in ${Date.now() - startedAt}ms, ${quiz.questions.length}/${questionCount} questions`
+      `generate-quiz: ok in ${Date.now() - startedAt}ms, ${quiz.questions.length}/${questionCount} questions, mode=${aiResponse.lessonMode}`
     );
-    return jsonResponse(200, { quiz });
+    return jsonResponse(200, { quiz, lessonMode: aiResponse.lessonMode });
   } catch (err) {
     if (err instanceof GenerationError) {
       console.error(`generate-quiz: failed (${err.code}) in ${Date.now() - startedAt}ms`);

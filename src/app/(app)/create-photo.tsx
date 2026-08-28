@@ -144,7 +144,10 @@ export default function CreatePhotoScreen() {
 
       router.push({
         pathname: '/quiz-draft',
-        params: { quiz: JSON.stringify(result.quiz) },
+        params: {
+          quiz: JSON.stringify(result.quiz),
+          ...(result.lessonMode ? { lessonMode: result.lessonMode } : {}),
+        },
       });
     } finally {
       setIsGenerating(false);

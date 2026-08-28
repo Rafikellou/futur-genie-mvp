@@ -8,6 +8,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 
 import { supabase } from '@shared/supabase/client';
 import { QuizDataSchema, type QuizData } from '@shared/domain/quiz';
+import { LESSON_MODES, type LessonMode } from '@shared/domain/lessonMode';
 import type { GenerationErrorCode } from '@shared/domain/generationErrors';
 import type { Grade } from '@shared/domain/grade';
 import type { Subject } from '@shared/domain/subject';
@@ -25,8 +26,14 @@ export type GenerateQuizParams = {
 };
 
 export type GenerateQuizResult =
-  | { ok: true; quiz: QuizData }
+  | { ok: true; quiz: QuizData; lessonMode?: LessonMode }
   | { ok: false; code: GenerationErrorCode };
+
+function readLessonMode(value: unknown): LessonMode | undefined {
+  return (LESSON_MODES as string[]).includes(value as string)
+    ? (value as LessonMode)
+    : undefined;
+}
 
 export async function generateQuizFromLesson(
   params: GenerateQuizParams
@@ -57,11 +64,12 @@ export async function generateQuizFromLesson(
     // Re-validated on the client even though the Edge Function already
     // validates its own output — defends against a stale app talking to a
     // future backend shape, not against a malicious backend.
-    const parsed = QuizDataSchema.safeParse((data as { quiz?: unknown } | null)?.quiz);
+    const payload = data as { quiz?: unknown; lessonMode?: unknown } | null;
+    const parsed = QuizDataSchema.safeParse(payload?.quiz);
     if (!parsed.success) {
       return { ok: false, code: 'invalid_ai_output' };
     }
-    return { ok: true, quiz: parsed.data };
+    return { ok: true, quiz: parsed.data, lessonMode: readLessonMode(payload?.lessonMode) };
   } catch {
     // Covers file-read failures and anything else unexpected — the teacher
     // only needs a stable error code, not the underlying cause.

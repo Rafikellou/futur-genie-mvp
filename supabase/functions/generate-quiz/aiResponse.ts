@@ -5,6 +5,7 @@
 import { z } from 'zod';
 
 import { QuizDataSchema, type QuizData } from '../../../shared/domain/quiz.ts';
+import { LESSON_MODES, type LessonMode } from '../../../shared/domain/lessonMode.ts';
 import { GenerationError } from './errors.ts';
 
 // Exact shape requested from the model via OpenAI's structured output — see
@@ -33,6 +34,10 @@ export const AiQuizResponseSchema = z.object({
   // either flag is false.
   readable: z.boolean(),
   sufficientContent: z.boolean(),
+  // How the model chose to test the lesson (rule application vs. recall).
+  // Surfaced to the teacher on the review screen as a plain-French sentence;
+  // never persisted or published (CLAUDE.md §23) — see shared/domain/lessonMode.
+  lessonMode: z.enum(LESSON_MODES as [LessonMode, ...LessonMode[]]),
   title: z.string().min(1),
   instructions: z.string().min(1),
   questions: z.array(WireQuestionSchema),

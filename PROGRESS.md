@@ -41,8 +41,13 @@ conversation (reprise fidèlement de `CLAUDE.md` §15 et du skill
   constantes de domaine, schémas Zod, client Supabase) + `supabase/`
   (migrations + Edge Functions).
 - **Auth** : Supabase Auth, email + mot de passe.
-- **LLM** : OpenAI, `GPT-4o-mini` par défaut (`GPT-4o` en repli si qualité
-  insuffisante), derrière une fonction `generateQuizFromLesson()`.
+- **LLM** : OpenAI, `gpt-4.1` par défaut (`gpt-4o` en repli si le modèle
+  primaire est indisponible ou renvoie une sortie non exploitable),
+  derrière une fonction `generateQuizFromLesson()`. `gpt-4o-mini` (défaut
+  historique) abandonné : trop faible pour la calibration de difficulté par
+  niveau et la nuance pédagogique (voir « Fiabilisation des quizs » plus
+  bas). Passage à Claude envisagé comme étape suivante (nécessite un secret
+  `ANTHROPIC_API_KEY`).
 - **Image de leçon** : compressée côté client, envoyée en base64 à l'Edge
   Function, jamais stockée (ni Storage ni disque).
 - **Publication** : RPC Postgres `publish_quiz` (pas d'Edge Function —
@@ -446,6 +451,66 @@ par niveau **et** par matière (pas seulement une phrase générique dans le
 prompt système), à concevoir avant d'être incorporé — forme exacte encore
 à définir (contenu enrichi du prompt, few-shot, grille de difficulté
 structurée, etc.).
+
+## Fiabilisation des quizs générés — Phase 1
+
+Plan validé avec l'utilisateur (3 phases). **Phase 1 implémentée** ; phases
+2-3 (fiches de calibration par niveau/matière tirées des repères Éduscol,
+capture du feedback enseignant, passe d'auto-révision) reportées.
+
+Contexte : le simple resserrement du prompt système (Milestone 6) n'avait
+pas corrigé la difficulté perçue trop faible. Deux vrais leviers restaient :
+le modèle, et la distinction règle/mémoire laissée implicite.
+
+Implémenté :
+
+- **Modèle** : primaire `gpt-4o-mini` → `gpt-4.1` ; repli `gpt-4o`
+  déclenché désormais aussi sur `model_unavailable` (pas seulement sur une
+  sortie non parsable), pour que le changement d'ID de modèle ne casse pas
+  la génération si le compte n'y a pas accès.
+- **Classification règle vs mémoire** (`shared/domain/lessonMode.ts` :
+  `generative` / `factual` / `mixed`). Le prompt système impose de classer
+  la leçon *avant* d'écrire les questions, et autorise explicitement — pour
+  une leçon `generative`/`mixed` — à fabriquer de nouveaux items appliquant
+  une règle présente sur la page à des valeurs/mots absents de la page (ce
+  n'était pas clair avant : la règle 2 se lisait comme « ne jamais rien
+  ajouter »). Pour une leçon `factual`, rester strictement dans les faits
+  énoncés. Le `lessonMode` est renvoyé par l'Edge Function à côté du quiz,
+  affiché en une phrase française sur l'écran de revue
+  (`quiz-draft.tsx`) — **jamais persisté ni publié** (métadonnée IA
+  interne, §23). Bascule + régénération depuis l'écran de revue **non
+  faite** (pas de flux de régénération depuis cet écran aujourd'hui) — à
+  ajouter séparément si besoin.
+- **Calibration à la leçon** : le prompt demande de caler la difficulté sur
+  le niveau demandé **et** sur la complexité des exemples visibles sur la
+  page (la page est elle-même un signal de niveau).
+- **Vérification arithmétique déterministe**
+  (`supabase/functions/generate-quiz/checkArithmetic.ts`) : pour les quizs
+  de mathématiques uniquement, toute question contenant un calcul `a op b`
+  non ambigu dont la réponse annoncée est fausse est retirée avant l'écran
+  de revue, avec un avertissement français. Volontairement étroit (une
+  seule opération claire, réponse numérique propre) — n'agit jamais sur un
+  doute, pour ne pas supprimer une question correcte. Si tout est retiré →
+  `invalid_ai_output`.
+
+Vérifié :
+
+- `npx tsc --noEmit` : OK. `npm run lint` : OK.
+- Tests Deno de `generate-quiz` : cas ajoutés pour `lessonMode` (schéma) et
+  `checkArithmetic` (calcul faux détecté, cas ambigus laissés tranquilles,
+  quiz non-maths ignoré). **Non exécutés** (pas de runtime Deno dans cet
+  environnement — inchangé depuis Milestone 5).
+- `npm test` (Jest app) : 10/10 OK (aucun test app ne touchait ce flux).
+
+Non vérifié :
+
+- Effet réel sur la difficulté perçue par une enseignante sur une leçon CE2
+  réelle (le point de départ du sujet). À tester sur appareil après
+  déploiement (`npx supabase functions deploy generate-quiz`).
+- Disponibilité de `gpt-4.1` sur le compte OpenAI (le repli couvre le cas,
+  mais à confirmer).
+- Jeu d'évaluation pédagogique systématique — toujours pas construit
+  (prérequis des phases 2-3).
 
 ## Milestone 7 — Publication et URL publique (détail)
 

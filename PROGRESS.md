@@ -455,11 +455,13 @@ prompt système), à concevoir avant d'être incorporé — forme exacte encore
 à définir (contenu enrichi du prompt, few-shot, grille de difficulté
 structurée, etc.).
 
-## Fiabilisation des quizs générés — Phase 1
+## Fiabilisation des quizs générés — Phases 1 et 2
 
-Plan validé avec l'utilisateur (3 phases). **Phase 1 implémentée** ; phases
-2-3 (fiches de calibration par niveau/matière tirées des repères Éduscol,
-capture du feedback enseignant, passe d'auto-révision) reportées.
+Plan validé avec l'utilisateur (3 phases). **Phase 1 implémentée.** **Phase
+2 démarrée** : les 5 fiches de calibration transversales (une par niveau)
+sont en place. Reste de la phase 2-3 : golden set + rubrique de difficulté
+à construire et à mesurer, fiches matière×niveau ciblées si nécessaire,
+capture du feedback enseignant, passe d'auto-révision.
 
 Contexte : le simple resserrement du prompt système (Milestone 6) n'avait
 pas corrigé la difficulté perçue trop faible. Deux vrais leviers restaient :
@@ -500,13 +502,27 @@ Implémenté :
   seule opération claire, réponse numérique propre) — n'agit jamais sur un
   doute, pour ne pas supprimer une question correcte. Si tout est retiré →
   `invalid_ai_output`.
+- **Phase 2 — fiches de calibration transversales**
+  (`supabase/functions/generate-quiz/calibration.ts`) : une fiche par
+  niveau (CP→CM2), tous sujets confondus, distillée à la main des
+  « Repères annuels de progression » / « Attendus de fin d'année » Éduscol
+  (Licence Ouverte, réutilisation commerciale avec attribution). Chaque
+  fiche donne, en une demi-page : maturité de lecture/raisonnement,
+  longueur de phrase, profondeur de raisonnement attendue, ancrages maths
+  (plages de nombres + exemples de calculs au bon niveau), ancrages
+  français (temps, notions d'orthographe), et un contraste concret
+  « trop facile / bon niveau ». `buildTaskPrompt` injecte **une seule**
+  fiche (celle du niveau demandé) dans le message de tâche ; sélection
+  triviale par `grade`, aucun RAG. La règle 3 du prompt système renvoie
+  vers ces notes. ~320 tokens par génération, coût négligeable.
 
 Vérifié :
 
 - `npx tsc --noEmit` : OK. `npm run lint` : OK.
-- Tests Deno de `generate-quiz` : cas ajoutés pour `lessonMode` (schéma) et
+- Tests Deno de `generate-quiz` : cas ajoutés pour `lessonMode` (schéma),
   `checkArithmetic` (calcul faux détecté, cas ambigus laissés tranquilles,
-  quiz non-maths ignoré). **Non exécutés** (pas de runtime Deno dans cet
+  quiz non-maths ignoré), et injection de la fiche de calibration du bon
+  niveau uniquement. **Non exécutés** (pas de runtime Deno dans cet
   environnement — inchangé depuis Milestone 5).
 - `npm test` (Jest app) : 10/10 OK (aucun test app ne touchait ce flux).
 
@@ -521,8 +537,15 @@ Non vérifié :
   confirmer sur appareil).
 - Si `luna` suffit pour la difficulté perçue, ou s'il faut monter vers
   `terra`.
-- Jeu d'évaluation pédagogique systématique — toujours pas construit
-  (prérequis des phases 2-3).
+- Effet réel des fiches de calibration (les 5 fiches transversales) — à
+  mesurer avec le golden set une fois celui-ci construit.
+- Jeu d'évaluation pédagogique systématique (« golden set » : ~12-15
+  photos de leçons réelles + rubrique de notation, dont un critère
+  « bon niveau ») — **toujours pas construit**. C'est le prochain
+  livrable de la phase 2 : sans lui, on ne peut pas mesurer si les
+  fiches (ou un passage luna→terra) améliorent vraiment la difficulté.
+- Fiches matière×niveau (maths, français) — à créer **seulement** là où
+  la mesure montre que la fiche de niveau générique ne suffit pas.
 
 ## Milestone 7 — Publication et URL publique (détail)
 

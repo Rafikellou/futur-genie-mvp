@@ -24,6 +24,18 @@ Deno.test('buildTaskPrompt includes the teacher-selected parameters', () => {
   assert(prompt.includes('mixed'));
 });
 
+Deno.test('buildTaskPrompt injects the calibration notes for the requested grade only', () => {
+  const ce2 = buildTaskPrompt({ grade: 'CE2', subject: 'mathematiques', quizType: 'short_answer', questionCount: 10 });
+  assert(ce2.includes('Calibration notes for CE2'));
+  // A concrete CE2 anchor from the card, and nothing from another grade's card.
+  assert(ce2.includes('10 000'));
+  assert(!ce2.includes('Calibration notes for CM2'));
+
+  const cp = buildTaskPrompt({ grade: 'CP', subject: 'francais', quizType: 'true_false', questionCount: 5 });
+  assert(cp.includes('Calibration notes for CP'));
+  assert(cp.includes('~6 years old'));
+});
+
 Deno.test('buildTaskPrompt bounds a teacher instruction instead of merging it silently', () => {
   const prompt = buildTaskPrompt({
     grade: 'CM2',

@@ -128,6 +128,30 @@ Deno.test('toQuizData converts a true_false "vrai"/"faux" answer to a boolean', 
   assertEquals(trueFalse.correctAnswer, true);
 });
 
+Deno.test('toQuizData shuffles multiple_choice/gap_fill choices instead of leaving the correct answer wherever the model put it', () => {
+  // The model reliably writes the correct answer as choices[0]. Run enough
+  // independent generations to make it astronomically unlikely (~1-in-3^40)
+  // that a real shuffle would land on index 0 every single time — a flaky
+  // failure here would mean the shuffle broke, not bad luck.
+  const positions = new Set<number>();
+  for (let i = 0; i < 40; i++) {
+    const raw = validAiResponse();
+    raw.questions[0] = {
+      ...raw.questions[0],
+      choices: ['0 °C', '10 °C', '100 °C'],
+      correctAnswer: '0 °C',
+    };
+    const quiz = toQuizData(raw, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' });
+    const mc = quiz.questions[0];
+    assert(mc.type === 'multiple_choice');
+    // Same three choices, just possibly reordered.
+    assertEquals([...mc.choices].sort(), ['0 °C', '10 °C', '100 °C']);
+    assertEquals(mc.correctAnswer, '0 °C');
+    positions.add(mc.choices.indexOf('0 °C'));
+  }
+  assert(positions.size > 1, 'correct answer should not always land on the same position');
+});
+
 Deno.test('toQuizData rejects a multiple_choice question whose correctAnswer is not among its choices', () => {
   const raw = validAiResponse();
   raw.questions[0] = { ...raw.questions[0], correctAnswer: '20 °C' };

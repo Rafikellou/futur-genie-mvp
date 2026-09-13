@@ -36,6 +36,30 @@ export const WireQuestionSchema = z.object({
 
 export type WireQuestion = z.infer<typeof WireQuestionSchema>;
 
+// The model reliably places the correct answer first (a well-documented LLM
+// positional bias — see e.g. answer-order studies on MMLU-style benchmarks),
+// regardless of prompt wording asking it to vary position. Asking nicely in
+// the prompt is not a fix for a statistical bias, so the app enforces a
+// uniform position itself, once, right after validation: a Fisher-Yates
+// shuffle of `choices` using CSPRNG randomness. `correctAnswer` is matched by
+// value (not index) everywhere — grading (src/features/quiz-taking/grading.ts)
+// and the public schema both compare strings — so shuffling the array is
+// safe and requires no other change. This must run before the question is
+// ever persisted or shown to the teacher, so the stored order is the order
+// everyone (teacher review, published quiz, every student) sees — never
+// reshuffled again on read, which would make a published quiz's answer order
+// change between page loads.
+function shuffleChoices(choices: string[]): string[] {
+  const shuffled = [...choices];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    const j = bytes[0] % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export const AiQuizResponseSchema = z.object({
   // Reported by the model itself rather than inferred from question count
   // (CLAUDE.md §20/§24) — an empty `questions` array is expected whenever
@@ -73,7 +97,7 @@ function normalizeQuestion(wire: WireQuestion) {
         question: wire.question,
         explanation: wire.explanation,
         sourceEvidence: wire.sourceEvidence,
-        choices: wire.choices,
+        choices: shuffleChoices(wire.choices),
         correctAnswer: wire.correctAnswer,
       };
     }
@@ -116,7 +140,7 @@ function normalizeQuestion(wire: WireQuestion) {
         question: wire.question,
         explanation: wire.explanation,
         sourceEvidence: wire.sourceEvidence,
-        choices: wire.choices,
+        choices: shuffleChoices(wire.choices),
         correctAnswer: wire.correctAnswer,
       };
     }

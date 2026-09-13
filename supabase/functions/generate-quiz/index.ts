@@ -24,6 +24,12 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Per-teacher cap on generation *attempts* (not published quizzes — a
+// regenerate-without-publishing loop still spends tokens) in any rolling
+// 24h window, while the app is in beta with a small group of teachers
+// (CLAUDE.md §55). A plain constant, bumped in code if it needs to change.
+const DAILY_GENERATION_LIMIT = 10;
+
 const GRADE_VALUES = GRADES.map((g) => g.value) as [Grade, ...Grade[]];
 const SUBJECT_VALUES = SUBJECTS.map((s) => s.value) as [Subject, ...Subject[]];
 const QUIZ_TYPE_VALUES = EXERCISE_TYPES.map((t) => t.value) as [QuizType, ...QuizType[]];
@@ -103,6 +109,29 @@ Deno.serve(async (req: Request) => {
   if (!apiKey) {
     console.error('generate-quiz: OPENAI_API_KEY is not configured');
     return errorResponse('unknown_error');
+  }
+
+  // Quota check happens right before the model call, not up front with the
+  // rest of validation: only a real attempt to generate (which spends
+  // tokens) should count or be blocked. A count/log failure here fails open
+  // (logged, generation proceeds) — this is a cost guard, not an
+  // authorization control, and must never take down the golden path.
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count, error: countError } = await supabase
+    .from('generation_attempts')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', userData.user.id)
+    .gte('created_at', since);
+
+  if (countError) {
+    console.error('generate-quiz: failed to check daily quota', countError);
+  } else if ((count ?? 0) >= DAILY_GENERATION_LIMIT) {
+    return errorResponse('daily_limit_reached');
+  }
+
+  const { error: logError } = await supabase.from('generation_attempts').insert({});
+  if (logError) {
+    console.error('generate-quiz: failed to log generation attempt', logError);
   }
 
   const startedAt = Date.now();

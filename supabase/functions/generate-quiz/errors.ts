@@ -14,7 +14,7 @@ export class GenerationError extends Error {
 
 // Content/quality issues are 422 (well-formed request the pipeline still
 // can't satisfy); auth is 401; a malformed request is 400; upstream
-// failures are 502/504; anything else is 500.
+// failures are 502/504; the daily quota is 429; anything else is 500.
 export function statusForErrorCode(code: GenerationErrorCode): number {
   switch (code) {
     case 'unauthorized':
@@ -29,6 +29,8 @@ export function statusForErrorCode(code: GenerationErrorCode): number {
       return 504;
     case 'model_unavailable':
       return 502;
+    case 'daily_limit_reached':
+      return 429;
     case 'unknown_error':
     default:
       return 500;

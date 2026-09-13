@@ -11,6 +11,7 @@ export type GenerationErrorCode =
   | 'invalid_ai_output'
   | 'unauthorized'
   | 'invalid_request'
+  | 'daily_limit_reached'
   | 'unknown_error';
 
 export const GENERATION_ERROR_MESSAGES: Record<GenerationErrorCode, string> = {
@@ -25,6 +26,8 @@ export const GENERATION_ERROR_MESSAGES: Record<GenerationErrorCode, string> = {
     "Nous n'avons pas réussi à créer un devoir exploitable à partir de cette photo. Réessayez, ou choisissez une autre photo.",
   unauthorized: 'Votre session a expiré. Reconnectez-vous pour continuer.',
   invalid_request: 'Il manque une information nécessaire. Revenez en arrière et réessayez.',
+  daily_limit_reached:
+    "Vous avez atteint la limite de 10 devoirs par jour prévue pendant cette phase de test. Vous pourrez en créer de nouveaux demain.",
   unknown_error: 'Une erreur inattendue est survenue. Réessayez dans un instant.',
 };
 

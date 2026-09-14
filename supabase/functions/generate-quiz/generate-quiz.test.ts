@@ -76,7 +76,6 @@ function validAiResponse(): AiQuizResponse {
         sourceEvidence: "L'eau devient solide à 0 °C.",
         choices: ['0 °C', '10 °C', '100 °C'],
         correctAnswer: '0 °C',
-        pairs: null,
       },
       {
         type: 'true_false',
@@ -85,7 +84,6 @@ function validAiResponse(): AiQuizResponse {
         sourceEvidence: "L'eau devient gazeuse (elle bout) à 100 °C.",
         choices: null,
         correctAnswer: 'vrai',
-        pairs: null,
       },
       {
         type: 'multiple_choice',
@@ -94,7 +92,6 @@ function validAiResponse(): AiQuizResponse {
         sourceEvidence: "À l'état gazeux, l'eau est appelée vapeur d'eau.",
         choices: ["vapeur d'eau", 'glace', 'buée'],
         correctAnswer: "vapeur d'eau",
-        pairs: null,
       },
     ],
   });
@@ -183,7 +180,6 @@ Deno.test('toQuizData accepts a well-formed gap_fill question and rejects one wi
     sourceEvidence: "L'eau bout à 100 °C.",
     choices: ['0', '50', '100'],
     correctAnswer: '100',
-    pairs: null,
   });
 
   const quiz = toQuizData(good, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' });
@@ -199,46 +195,6 @@ Deno.test('toQuizData accepts a well-formed gap_fill question and rejects one wi
     sourceEvidence: 'x',
     choices: ['0', '50', '100'],
     correctAnswer: '100',
-    pairs: null,
-  });
-  const err = assertThrows(
-    () => toQuizData(bad, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' }),
-    GenerationError
-  );
-  assertEquals(err.code, 'invalid_ai_output');
-});
-
-Deno.test('toQuizData accepts a matching question and rejects one with duplicate right values', () => {
-  const good = validAiResponse();
-  good.questions.push({
-    type: 'matching',
-    question: 'Relie chaque état à sa température.',
-    explanation: 'x',
-    sourceEvidence: 'x',
-    choices: null,
-    correctAnswer: '',
-    pairs: [
-      { left: 'Solide', right: '0 °C' },
-      { left: 'Gazeux', right: '100 °C' },
-    ],
-  });
-  const quiz = toQuizData(good, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' });
-  const matching = quiz.questions[quiz.questions.length - 1];
-  assert(matching.type === 'matching');
-  assertEquals(matching.pairs.length, 2);
-
-  const bad = validAiResponse();
-  bad.questions.push({
-    type: 'matching',
-    question: 'Relie.',
-    explanation: 'x',
-    sourceEvidence: 'x',
-    choices: null,
-    correctAnswer: '',
-    pairs: [
-      { left: 'A', right: 'même' },
-      { left: 'B', right: 'même' },
-    ],
   });
   const err = assertThrows(
     () => toQuizData(bad, { grade: 'CE2', subject: 'sciences', quizType: 'mixed' }),

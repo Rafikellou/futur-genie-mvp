@@ -78,7 +78,7 @@ export function stripWrongArithmetic(quiz: QuizData): QuizData {
 
   const kept = quiz.questions.filter((q) => {
     // Only multiple_choice / gap_fill carry a single stated numeric answer to
-    // sanity-check; true_false and matching don't.
+    // sanity-check; true_false doesn't.
     if (q.type !== 'multiple_choice' && q.type !== 'gap_fill') return true;
     return !hasWrongArithmeticAnswer(q.question, q.correctAnswer);
   });

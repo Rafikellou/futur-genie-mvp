@@ -9,9 +9,7 @@
 // submit_quiz_answers() (CLAUDE.md §48).
 //
 // Every question type is auto-gradable, so `gradableCount` always equals the
-// number of questions — a quiz score is simply "correct / total". A matching
-// question is scored all-or-nothing (every pair right, or the question is
-// wrong), so it too is worth exactly one point.
+// number of questions — a quiz score is simply "correct / total".
 import type { PublicQuestion } from '@shared/domain/quiz';
 import type { AnswerMap, StudentAnswer } from '@shared/domain/submission';
 
@@ -27,8 +25,6 @@ export function createEmptyAnswers(questions: PublicQuestion[]): AnswerMap {
       answers[question.id] = { type: 'multiple_choice', value: null };
     } else if (question.type === 'gap_fill') {
       answers[question.id] = { type: 'gap_fill', value: null };
-    } else if (question.type === 'matching') {
-      answers[question.id] = { type: 'matching', value: {} };
     } else {
       answers[question.id] = { type: 'true_false', value: null };
     }
@@ -36,17 +32,12 @@ export function createEmptyAnswers(questions: PublicQuestion[]): AnswerMap {
   return answers;
 }
 
-function isAnswered(question: PublicQuestion, answer: StudentAnswer | undefined): boolean {
-  if (!answer) return false;
-  if (question.type === 'matching' && answer.type === 'matching') {
-    return question.pairs.every((_, index) => Boolean(answer.value[String(index)]));
-  }
-  if (answer.type === 'matching') return false;
-  return answer.value !== null;
+function isAnswered(answer: StudentAnswer | undefined): boolean {
+  return answer !== undefined && answer.value !== null;
 }
 
 export function areAllAnswered(questions: PublicQuestion[], answers: AnswerMap): boolean {
-  return questions.every((question) => isAnswered(question, answers[question.id]));
+  return questions.every((question) => isAnswered(answers[question.id]));
 }
 
 export type QuestionResult = {
@@ -73,12 +64,6 @@ export function gradeQuiz(questions: PublicQuestion[], answers: AnswerMap): Grad
     }
     if (question.type === 'gap_fill' && answer?.type === 'gap_fill') {
       return { questionId: question.id, isCorrect: answer.value === question.correctAnswer };
-    }
-    if (question.type === 'matching' && answer?.type === 'matching') {
-      const allPairsRight = question.pairs.every(
-        (pair, index) => answer.value[String(index)] === pair.right,
-      );
-      return { questionId: question.id, isCorrect: allPairsRight };
     }
     return { questionId: question.id, isCorrect: false };
   });

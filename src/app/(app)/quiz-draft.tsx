@@ -86,7 +86,6 @@ export default function QuizDraftScreen() {
       { text: 'Choix multiple', onPress: () => handleAddQuestion('multiple_choice') },
       { text: 'Vrai ou Faux', onPress: () => handleAddQuestion('true_false') },
       { text: 'Texte à trous', onPress: () => handleAddQuestion('gap_fill') },
-      { text: 'Reliez les paires', onPress: () => handleAddQuestion('matching') },
       { text: 'Annuler', style: 'cancel' },
     ]);
   }
@@ -253,30 +252,6 @@ export default function QuizDraftScreen() {
               onSelectTrueFalse={(value) =>
                 updateQuestion(question.id, (q) => (q.type === 'true_false' ? { ...q, correctAnswer: value } : q))
               }
-              onChangePairText={(pairIndex, side, text) =>
-                updateQuestion(question.id, (q) =>
-                  q.type === 'matching'
-                    ? {
-                        ...q,
-                        pairs: q.pairs.map((p, i) => (i === pairIndex ? { ...p, [side]: text } : p)),
-                      }
-                    : q
-                )
-              }
-              onAddPair={() =>
-                updateQuestion(question.id, (q) =>
-                  q.type === 'matching' && q.pairs.length < 4
-                    ? { ...q, pairs: [...q.pairs, { left: '', right: '' }] }
-                    : q
-                )
-              }
-              onRemovePair={(pairIndex) =>
-                updateQuestion(question.id, (q) =>
-                  q.type === 'matching' && q.pairs.length > 2
-                    ? { ...q, pairs: q.pairs.filter((_, i) => i !== pairIndex) }
-                    : q
-                )
-              }
               onDelete={() => handleDeleteQuestion(question.id)}
             />
           ))}
@@ -337,16 +312,6 @@ function makeEmptyQuestion(type: Question['type']): Question {
       return { ...base, type, correctAnswer: true };
     case 'gap_fill':
       return { ...base, type, question: `Complète : … ${BLANK_MARKER} …`, choices: ['', ''], correctAnswer: '' };
-    case 'matching':
-      return {
-        ...base,
-        type,
-        question: 'Relie chaque élément à sa bonne réponse.',
-        pairs: [
-          { left: '', right: '' },
-          { left: '', right: '' },
-        ],
-      };
   }
 }
 
@@ -398,16 +363,6 @@ function findQuizIssues(quiz: QuizData): string[] {
     if (q.type === 'gap_fill' && !q.question.includes(BLANK_MARKER)) {
       issues.push(`La question ${n} (texte à trous) doit contenir le trou « ${BLANK_MARKER} ».`);
     }
-    if (q.type === 'matching') {
-      if (q.pairs.some((p) => !p.left.trim() || !p.right.trim())) {
-        issues.push(`Une paire de la question ${n} est incomplète.`);
-      }
-      const lefts = q.pairs.map((p) => p.left.trim());
-      const rights = q.pairs.map((p) => p.right.trim());
-      if (new Set(lefts).size !== lefts.length || new Set(rights).size !== rights.length) {
-        issues.push(`Les paires de la question ${n} doivent être toutes différentes.`);
-      }
-    }
   });
 
   return issues;
@@ -422,9 +377,6 @@ type QuestionCardProps = {
   onAddChoice: () => void;
   onRemoveChoice: (choiceIndex: number) => void;
   onSelectTrueFalse: (value: boolean) => void;
-  onChangePairText: (pairIndex: number, side: 'left' | 'right', text: string) => void;
-  onAddPair: () => void;
-  onRemovePair: (pairIndex: number) => void;
   onDelete: () => void;
 };
 
@@ -437,9 +389,6 @@ function QuestionCard({
   onAddChoice,
   onRemoveChoice,
   onSelectTrueFalse,
-  onChangePairText,
-  onAddPair,
-  onRemovePair,
   onDelete,
 }: QuestionCardProps) {
   return (
@@ -537,49 +486,6 @@ function QuestionCard({
               </Pressable>
             );
           })}
-        </View>
-      )}
-
-      {question.type === 'matching' && (
-        <View style={styles.choiceList}>
-          <Text style={styles.gapHint}>
-            Chaque paire relie un élément de gauche à sa bonne réponse à droite. L&apos;élève doit
-            toutes les retrouver.
-          </Text>
-          {question.pairs.map((pair, pairIndex) => (
-            <View key={pairIndex} style={styles.pairRow}>
-              <TextInput
-                style={styles.pairInput}
-                value={pair.left}
-                onChangeText={(text) => onChangePairText(pairIndex, 'left', text)}
-                placeholder="Élément"
-                accessibilityLabel={`Élément ${pairIndex + 1} de la question ${index + 1}`}
-              />
-              <Text style={styles.pairArrow}>→</Text>
-              <TextInput
-                style={styles.pairInput}
-                value={pair.right}
-                onChangeText={(text) => onChangePairText(pairIndex, 'right', text)}
-                placeholder="Bonne réponse"
-                accessibilityLabel={`Bonne réponse ${pairIndex + 1} de la question ${index + 1}`}
-              />
-              {question.pairs.length > 2 && (
-                <Pressable
-                  onPress={() => onRemovePair(pairIndex)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Supprimer cette paire"
-                  hitSlop={8}
-                >
-                  <Text style={styles.removeChoiceText}>✕</Text>
-                </Pressable>
-              )}
-            </View>
-          ))}
-          {question.pairs.length < 4 && (
-            <Pressable onPress={onAddPair} accessibilityRole="button">
-              <Text style={styles.addChoiceText}>+ Ajouter une paire</Text>
-            </Pressable>
-          )}
         </View>
       )}
 
@@ -684,25 +590,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#555555',
     marginTop: 2,
-  },
-  pairRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pairInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1A1A1A',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  pairArrow: {
-    fontSize: 15,
-    color: '#777777',
   },
   choiceList: {
     gap: 8,

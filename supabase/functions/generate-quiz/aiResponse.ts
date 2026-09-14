@@ -14,24 +14,17 @@ import { GenerationError } from './errors.ts';
 // question type are `null` rather than omitted, because OpenAI's strict
 // structured-output mode requires every declared property to be present.
 export const WireQuestionSchema = z.object({
-  type: z.enum(['multiple_choice', 'true_false', 'gap_fill', 'matching']),
+  type: z.enum(['multiple_choice', 'true_false', 'gap_fill']),
   // For gap_fill: the sentence to complete, containing the blank written as
   // "____" (BLANK_MARKER).
   question: z.string().min(1),
   explanation: z.string().min(1),
   sourceEvidence: z.string().min(1),
-  // multiple_choice / gap_fill: the list of choices. null for true_false and
-  // matching.
+  // multiple_choice / gap_fill: the list of choices. null for true_false.
   choices: z.array(z.string().min(1)).nullable(),
   // multiple_choice / gap_fill: the answer text (one of `choices`).
   // true_false: the French literal "vrai" or "faux".
-  // matching: empty (the answer key is `pairs`). Not `.min(1)` for that reason
-  // — normalizeQuestion enforces the real per-type rules.
   correctAnswer: z.string(),
-  // matching only: the left/right pairs that are the answer key. null otherwise.
-  pairs: z
-    .array(z.object({ left: z.string().min(1), right: z.string().min(1) }))
-    .nullable(),
 });
 
 export type WireQuestion = z.infer<typeof WireQuestionSchema>;
@@ -142,29 +135,6 @@ function normalizeQuestion(wire: WireQuestion) {
         sourceEvidence: wire.sourceEvidence,
         choices: shuffleChoices(wire.choices),
         correctAnswer: wire.correctAnswer,
-      };
-    }
-    case 'matching': {
-      const pairs = wire.pairs ?? [];
-      const lefts = pairs.map((p) => p.left);
-      const rights = pairs.map((p) => p.right);
-      if (
-        pairs.length < 2 ||
-        pairs.length > 4 ||
-        new Set(lefts).size !== lefts.length ||
-        new Set(rights).size !== rights.length
-      ) {
-        throw new GenerationError(
-          'invalid_ai_output',
-          'matching question needs 2-4 pairs with distinct left and right values'
-        );
-      }
-      return {
-        type: 'matching' as const,
-        question: wire.question,
-        explanation: wire.explanation,
-        sourceEvidence: wire.sourceEvidence,
-        pairs,
       };
     }
   }

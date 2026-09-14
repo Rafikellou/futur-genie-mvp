@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -17,12 +17,7 @@ import { Logo } from '@/components/Logo';
 // neither Stack.Protected guard covers this file, so it renders without a
 // teacher session — this is the student-facing public route (CLAUDE.md §8).
 import { supabase } from '@shared/supabase/client';
-import {
-  BLANK_MARKER,
-  PublicQuizDataSchema,
-  type MatchingPair,
-  type PublicQuizData,
-} from '@shared/domain/quiz';
+import { BLANK_MARKER, PublicQuizDataSchema, type PublicQuizData } from '@shared/domain/quiz';
 import {
   areAllAnswered,
   createEmptyAnswers,
@@ -166,18 +161,6 @@ export default function PublicQuizScreen() {
   const setGapFillAnswer = (questionId: string, choice: string) => {
     if (submitted) return;
     setAnswers((prev) => ({ ...prev, [questionId]: { type: 'gap_fill', value: choice } }));
-  };
-
-  const setMatchingAnswer = (questionId: string, pairIndex: number, rightLabel: string) => {
-    if (submitted) return;
-    setAnswers((prev) => {
-      const current = prev[questionId];
-      const value = current?.type === 'matching' ? current.value : {};
-      return {
-        ...prev,
-        [questionId]: { type: 'matching', value: { ...value, [String(pairIndex)]: rightLabel } },
-      };
-    });
   };
 
   const handleRetry = () => {
@@ -348,17 +331,6 @@ export default function PublicQuizScreen() {
                 </View>
               )}
 
-              {question.type === 'matching' && (
-                <MatchingBlock
-                  pairs={question.pairs}
-                  value={answer?.type === 'matching' ? answer.value : {}}
-                  submitted={submitted}
-                  onPick={(pairIndex, rightLabel) =>
-                    setMatchingAnswer(question.id, pairIndex, rightLabel)
-                  }
-                />
-              )}
-
               {submitted && result && (
                 <Text style={result.isCorrect ? styles.feedbackCorrect : styles.feedbackWrong}>
                   {result.isCorrect ? 'Bonne réponse !' : 'Ce n’est pas ça.'}
@@ -415,73 +387,6 @@ function GapFillSentence({
       </Text>
       {after}
     </Text>
-  );
-}
-
-// "Reliez les paires": each left item shows the shuffled right-side labels as
-// tappable chips. The student picks one per row. Scored all-or-nothing by
-// grading.ts — the per-row highlight after submitting is just to show which
-// choices were right.
-function MatchingBlock({
-  pairs,
-  value,
-  submitted,
-  onPick,
-}: {
-  pairs: MatchingPair[];
-  value: Record<string, string>;
-  submitted: boolean;
-  onPick: (pairIndex: number, rightLabel: string) => void;
-}) {
-  const shuffledRights = useMemo(() => {
-    const rights = pairs.map((p) => p.right);
-    for (let i = rights.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [rights[i], rights[j]] = [rights[j], rights[i]];
-    }
-    return rights;
-  }, [pairs]);
-
-  return (
-    <View style={styles.matchingList}>
-      {pairs.map((pair, pairIndex) => {
-        const picked = value[String(pairIndex)];
-        return (
-          <View key={pairIndex} style={styles.matchingRow}>
-            <Text style={styles.matchingLeft}>{pair.left}</Text>
-            <View style={styles.matchingChoices}>
-              {shuffledRights.map((right) => {
-                const isSelected = picked === right;
-                const isCorrectChoice = submitted && right === pair.right;
-                const isWrongSelected = submitted && isSelected && !isCorrectChoice;
-                return (
-                  <Pressable
-                    key={right}
-                    onPress={() => onPick(pairIndex, right)}
-                    disabled={submitted}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: isSelected, disabled: submitted }}
-                    accessibilityLabel={`${pair.left} : ${right}`}
-                    style={[
-                      styles.matchingChip,
-                      isSelected && styles.choiceOptionSelected,
-                      isCorrectChoice && styles.choiceOptionCorrect,
-                      isWrongSelected && styles.choiceOptionWrong,
-                    ]}
-                  >
-                    <Text style={styles.choiceText}>
-                      {submitted && isCorrectChoice ? '✅ ' : ''}
-                      {isWrongSelected ? '❌ ' : ''}
-                      {right}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        );
-      })}
-    </View>
   );
 }
 
@@ -620,30 +525,6 @@ const styles = StyleSheet.create({
   trueFalseRow: {
     flexDirection: 'row',
     gap: 10,
-  },
-  matchingList: {
-    gap: 14,
-  },
-  matchingRow: {
-    gap: 8,
-  },
-  matchingLeft: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  matchingChoices: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  matchingChip: {
-    borderWidth: 2,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
   },
   trueFalseOption: {
     flex: 1,

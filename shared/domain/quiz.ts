@@ -19,7 +19,7 @@ const QUIZ_TYPE_VALUES = EXERCISE_TYPES.map((t) => t.value) as [string, ...strin
 // "mixed" is a request-level composition choice, never a single question's
 // own type. Every question type is auto-gradable — a quiz's score is always
 // "correct / total", which keeps per-student and per-question stats simple.
-export type QuestionType = 'multiple_choice' | 'true_false' | 'gap_fill' | 'matching';
+export type QuestionType = 'multiple_choice' | 'true_false' | 'gap_fill';
 
 // The placeholder that marks the blank in a `gap_fill` question's sentence.
 // The student picks the word/number that belongs there from `choices`.
@@ -65,21 +65,6 @@ export const GapFillQuestionSchema = z.object({
   correctAnswer: z.string().min(1),
 });
 
-// "Reliez les paires": the student matches each left item to its right item.
-// The `pairs` list is itself the answer key. Scored all-or-nothing — the
-// question counts correct only if every pair is matched right — so it still
-// contributes exactly one point, keeping the "correct / total" score model.
-const MatchingPairSchema = z.object({
-  left: z.string().min(1),
-  right: z.string().min(1),
-});
-
-export const MatchingQuestionSchema = z.object({
-  ...baseQuestionShape,
-  type: z.literal('matching'),
-  pairs: z.array(MatchingPairSchema).min(2).max(4),
-});
-
 // Shared invariants that a discriminated union can't express on its own
 // (a member carrying `.refine` is no longer a plain object schema). Mirrored
 // by QuestionSchema and PublicQuestionSchema below.
@@ -88,12 +73,7 @@ type QuestionInvariantInput = {
   question: string;
   choices?: string[];
   correctAnswer?: string | boolean;
-  pairs?: { left: string; right: string }[];
 };
-
-function hasDuplicates(values: string[]): boolean {
-  return new Set(values).size !== values.length;
-}
 
 function questionInvariantIssue(q: QuestionInvariantInput): { message: string; path: string[] } | null {
   if (q.type === 'multiple_choice' || q.type === 'gap_fill') {
@@ -104,13 +84,6 @@ function questionInvariantIssue(q: QuestionInvariantInput): { message: string; p
   if (q.type === 'gap_fill' && !q.question.includes(BLANK_MARKER)) {
     return { message: `gap_fill question must contain the blank marker "${BLANK_MARKER}"`, path: ['question'] };
   }
-  if (q.type === 'matching' && q.pairs) {
-    // Both sides must be distinct: the student picks a right label per left
-    // item, and grading matches by label (here and in submit_quiz_answers).
-    if (hasDuplicates(q.pairs.map((p) => p.left)) || hasDuplicates(q.pairs.map((p) => p.right))) {
-      return { message: 'matching pairs must have distinct left and right values', path: ['pairs'] };
-    }
-  }
   return null;
 }
 
@@ -119,7 +92,6 @@ export const QuestionSchema = z
     MultipleChoiceQuestionSchema,
     TrueFalseQuestionSchema,
     GapFillQuestionSchema,
-    MatchingQuestionSchema,
   ])
   .superRefine((q, ctx) => {
     const issue = questionInvariantIssue(q);
@@ -129,8 +101,6 @@ export const QuestionSchema = z
 export type MultipleChoiceQuestion = z.infer<typeof MultipleChoiceQuestionSchema>;
 export type TrueFalseQuestion = z.infer<typeof TrueFalseQuestionSchema>;
 export type GapFillQuestion = z.infer<typeof GapFillQuestionSchema>;
-export type MatchingQuestion = z.infer<typeof MatchingQuestionSchema>;
-export type MatchingPair = z.infer<typeof MatchingPairSchema>;
 export type Question = z.infer<typeof QuestionSchema>;
 
 export const QuizDataSchema = z.object({
@@ -162,7 +132,6 @@ export const PublicQuestionSchema = z
     MultipleChoiceQuestionSchema.omit({ sourceEvidence: true }),
     TrueFalseQuestionSchema.omit({ sourceEvidence: true }),
     GapFillQuestionSchema.omit({ sourceEvidence: true }),
-    MatchingQuestionSchema.omit({ sourceEvidence: true }),
   ])
   .superRefine((q, ctx) => {
     const issue = questionInvariantIssue(q);

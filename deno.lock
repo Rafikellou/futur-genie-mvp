@@ -1,0 +1,53 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/internal@^1.0.12": "1.0.14"
+  },
+  "jsr": {
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@react-native-async-storage/async-storage@2.2.0",
+        "npm:@supabase/supabase-js@^2.112.4",
+        "npm:@types/jest@^29.5.14",
+        "npm:@types/react@~19.1.10",
+        "npm:eslint-config-expo@10.0",
+        "npm:eslint@9",
+        "npm:expo-clipboard@~8.0.8",
+        "npm:expo-constants@~18.0.14",
+        "npm:expo-file-system@~19.0.24",
+        "npm:expo-image-manipulator@~14.0.8",
+        "npm:expo-image-picker@~17.0.11",
+        "npm:expo-linking@~8.0.12",
+        "npm:expo-router@~6.0.24",
+        "npm:expo-splash-screen@~31.0.13",
+        "npm:expo-status-bar@~3.0.9",
+        "npm:expo-system-ui@~6.0.9",
+        "npm:expo@54.0",
+        "npm:jest-expo@^54.0.18",
+        "npm:jest@^29.7.0",
+        "npm:react-dom@19.1.0",
+        "npm:react-native-safe-area-context@5.6",
+        "npm:react-native-screens@4.16",
+        "npm:react-native-url-polyfill@4",
+        "npm:react-native-web@0.21",
+        "npm:react-native@0.81.5",
+        "npm:react@19.1.0",
+        "npm:supabase@^2.115.0",
+        "npm:typescript@~5.9.2",
+        "npm:zod@^3.25.76"
+      ]
+    }
+  }
+}

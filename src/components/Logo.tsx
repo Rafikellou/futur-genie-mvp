@@ -8,10 +8,14 @@ const LOGO_SOURCE = require('../../assets/images/logo-source.png');
 type LogoProps = {
   size?: number;
   showWordmark?: boolean;
+  // Defaults to near-black for the app's usual white backgrounds. The home
+  // screen's purple gradient header passes '#FFFFFF' instead so the
+  // wordmark stays legible over a dark, colored background.
+  textColor?: string;
   style?: ViewStyle;
 };
 
-export function Logo({ size = 40, showWordmark = true, style }: LogoProps) {
+export function Logo({ size = 40, showWordmark = true, textColor = '#1A1A1A', style }: LogoProps) {
   return (
     <View style={[styles.row, style]}>
       <Image
@@ -21,7 +25,9 @@ export function Logo({ size = 40, showWordmark = true, style }: LogoProps) {
         accessibilityLabel="Futur Génie"
       />
       {showWordmark && (
-        <Text style={[styles.wordmark, { fontSize: Math.round(size * 0.52) }]}>Futur Génie</Text>
+        <Text style={[styles.wordmark, { fontSize: Math.round(size * 0.52), color: textColor }]}>
+          Futur Génie
+        </Text>
       )}
     </View>
   );
@@ -35,7 +41,6 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     fontWeight: '800',
-    color: '#1A1A1A',
     letterSpacing: 0.2,
   },
 });

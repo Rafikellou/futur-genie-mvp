@@ -15,4 +15,8 @@ export const COLORS = {
   // public quiz screen fills a disabled button with a flat color instead of
   // the more common `opacity: 0.5` overlay used elsewhere in the app).
   primaryMuted: '#CBB3EC',
+  // Second stop for the home screen's header gradient. Chosen to echo the
+  // magenta stop in the flame-bulb logo mark rather than introducing an
+  // unrelated color, so the gradient still reads as "the brand".
+  primaryGradientEnd: '#C026D3',
 } as const;

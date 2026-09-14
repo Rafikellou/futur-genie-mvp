@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
+    "types": ["jest"],
     // shared/domain/quiz.ts uses explicit ".ts" specifiers on its internal
     // imports so the same file resolves under both Metro (this project) and
     // Deno (Edge Functions, which require extensions on relative imports).

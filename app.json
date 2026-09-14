@@ -46,7 +46,8 @@
           "photosPermission": "Autorisez l'accès à vos photos pour choisir une photo de la leçon.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

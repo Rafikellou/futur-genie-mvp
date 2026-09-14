@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -40,6 +41,14 @@ export default function SuggestionsScreen() {
       await submitSuggestion({ category, message: message.trim() });
       setIsSent(true);
       setMessage('');
+    } catch {
+      // The teacher's text is preserved (not cleared) so "Réessayer" costs
+      // nothing to type again — same principle as CLAUDE.md §39.
+      Alert.alert(
+        'Message non envoyé',
+        "Nous n'avons pas pu envoyer votre message. Vérifiez votre connexion et réessayez.",
+        [{ text: 'Réessayer' }]
+      );
     } finally {
       setIsSending(false);
     }

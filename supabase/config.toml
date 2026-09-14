@@ -371,6 +371,13 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# notify-feedback is called by a Database Webhook (server-to-server), never
+# by a signed-in teacher, so there is no Supabase user JWT to verify — it
+# authenticates the caller itself via a shared secret header instead (see
+# supabase/functions/notify-feedback/index.ts).
+[functions.notify-feedback]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

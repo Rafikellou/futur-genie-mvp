@@ -36,3 +36,52 @@ Deploy the function itself with:
 ```bash
 npx supabase functions deploy generate-quiz
 ```
+
+## Account deletion secret
+
+The `delete-account` function needs the service-role key (already available
+to every Edge Function as `SUPABASE_SERVICE_ROLE_KEY` — no separate secret to
+set). Deploy it with:
+
+```bash
+npx supabase functions deploy delete-account
+```
+
+## Feedback email alert (Suggestions screen)
+
+Emails the product owner when a teacher submits a suggestion. Three secrets,
+none of them committed to the repo:
+
+```bash
+# From resend.com (free tier, no card required): Settings > API Keys.
+npx supabase secrets set RESEND_API_KEY=re_...
+
+# Where the alert is sent.
+npx supabase secrets set FEEDBACK_ALERT_EMAIL=you@example.com
+
+# A random string only you and the webhook know — generate one with:
+#   openssl rand -hex 32
+npx supabase secrets set FEEDBACK_WEBHOOK_SECRET=<random string>
+```
+
+Deploy the function:
+
+```bash
+npx supabase functions deploy notify-feedback
+```
+
+Then, in the Supabase dashboard (this step has no CLI/migration equivalent —
+Database Webhooks live outside the SQL schema, same reasoning as why
+`OPENAI_API_KEY` above is a secret and not a migration): **Database →
+Webhooks → Create a new hook**
+
+- Table: `feedback`, event: `Insert`
+- Type: `Supabase Edge Functions` → `notify-feedback`
+- HTTP headers: add `x-webhook-secret` = the exact same random string you set
+  as `FEEDBACK_WEBHOOK_SECRET` above
+
+Without a verified sending domain in Resend, `onboarding@resend.dev` (the
+default `from` address) can only deliver to the email address your Resend
+account itself is registered with — fine as long as `FEEDBACK_ALERT_EMAIL`
+is that same address. Verifying your own domain in Resend later removes that
+restriction.

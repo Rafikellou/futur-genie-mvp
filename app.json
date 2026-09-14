@@ -47,7 +47,8 @@
           "microphonePermission": false
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

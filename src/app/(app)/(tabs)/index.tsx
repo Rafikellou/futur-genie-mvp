@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,15 +10,17 @@ import { Logo } from '@/components/Logo';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { COLORS } from '@/theme/colors';
 
-type StatsState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; total: number; published: number };
+type StatsState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; total: number };
 
-// Purely decorative "at a glance" numbers — not a features dashboard
-// (CLAUDE.md §6 excludes complex analytics). Two cheap head-count queries
+// Purely decorative "at a glance" number — not a features dashboard
+// (CLAUDE.md §6 excludes complex analytics). A single cheap head-count query
 // against the teacher's own RLS-scoped rows; failure just hides the row
 // instead of blocking the home screen, since it's not on the golden path.
+//
+// Only "created" is tracked, not "published": drafting and publishing happen
+// as one action (see quiz-draft.tsx's handlePublish), so every row in
+// `quizzes` is published in practice — a second "published" count would
+// almost always just repeat the same number.
 function useHomeStats(teacherId: string | undefined): StatsState {
   const [state, setState] = useState<StatsState>({ status: 'loading' });
 
@@ -25,24 +28,17 @@ function useHomeStats(teacherId: string | undefined): StatsState {
     if (!teacherId) return;
     let cancelled = false;
 
-    Promise.all([
-      supabase.from('quizzes').select('id', { count: 'exact', head: true }),
-      supabase
-        .from('quizzes')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'published'),
-    ]).then(([totalResult, publishedResult]) => {
-      if (cancelled) return;
-      if (totalResult.error || publishedResult.error || totalResult.count == null) {
-        setState({ status: 'error' });
-        return;
-      }
-      setState({
-        status: 'ready',
-        total: totalResult.count,
-        published: publishedResult.count ?? 0,
+    supabase
+      .from('quizzes')
+      .select('id', { count: 'exact', head: true })
+      .then(({ count, error }) => {
+        if (cancelled) return;
+        if (error || count == null) {
+          setState({ status: 'error' });
+          return;
+        }
+        setState({ status: 'ready', total: count });
       });
-    });
 
     return () => {
       cancelled = true;
@@ -59,44 +55,47 @@ export default function HomeScreen() {
 
   return (
     <Screen style={styles.screen}>
-      <LinearGradient
-        colors={[COLORS.primary, COLORS.primaryGradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <Logo size={40} textColor="#FFFFFF" />
-        <Text style={styles.greeting}>Bonjour {greetingName}</Text>
-      </LinearGradient>
+      <View style={styles.container}>
+        <Logo size={40} style={styles.logo} />
 
-      <View style={styles.body}>
-        {stats.status === 'ready' && stats.total > 0 && (
-          // Hidden for a brand-new teacher with zero quizzes yet — "0
-          // devoirs créés" on a first visit reads as empty, not encouraging.
-          <View style={styles.statsRow}>
-            <StatCard value={stats.total} label={stats.total > 1 ? 'devoirs créés' : 'devoir créé'} />
-            <StatCard value={stats.published} label={stats.published > 1 ? 'publiés' : 'publié'} />
-          </View>
-        )}
+        {/* One composed "hero" card rather than a full-bleed banner plus a
+            separately floating stat card: the greeting and the count are the
+            same idea (this teacher's activity), so they read as one unit. */}
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryGradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <Text style={styles.greeting}>Bonjour {greetingName}</Text>
 
-        {/* Actions sit in the middle of the screen rather than stacked at the
-            top, so the home screen doesn't leave the lower half empty. */}
+          {stats.status === 'ready' && stats.total > 0 && (
+            // Hidden for a brand-new teacher with zero quizzes yet — "0
+            // devoirs créés" on a first visit reads as empty, not encouraging.
+            <>
+              <View style={styles.heroDivider} />
+              <View style={styles.heroStat}>
+                <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.heroStatText}>
+                  <Text style={styles.heroStatValue}>{stats.total}</Text>{' '}
+                  {stats.total > 1 ? 'devoirs créés' : 'devoir créé'}
+                </Text>
+              </View>
+            </>
+          )}
+        </LinearGradient>
+
         <View style={styles.actions}>
           <Link href="/create" asChild>
-            <Pressable
-              style={({ pressed }) => [styles.createButton, pressed && styles.buttonPressed]}
-              accessibilityRole="button"
-            >
-              <Text style={styles.createButtonIcon}>📷</Text>
+            <Pressable style={styles.createButton} accessibilityRole="button">
+              <Ionicons name="camera-outline" size={20} color="#FFFFFF" />
               <Text style={styles.createButtonText}>Créer un devoir</Text>
             </Pressable>
           </Link>
 
           <Link href="/my-quizzes" asChild>
-            <Pressable
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
-              accessibilityRole="button"
-            >
+            <Pressable style={styles.secondaryButton} accessibilityRole="button">
+              <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
               <Text style={styles.secondaryButtonText}>Mes devoirs</Text>
             </Pressable>
           </Link>
@@ -106,69 +105,51 @@ export default function HomeScreen() {
   );
 }
 
-function StatCard({ value, label }: { value: number; label: string }) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  header: {
-    paddingTop: 12,
-    paddingBottom: 28,
-    paddingHorizontal: 24,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    gap: 18,
-    // Soft depth so the header reads as a raised band rather than a flat
-    // color block, without pulling in a shadow/elevation library.
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  body: {
+  container: {
     flex: 1,
     padding: 24,
   },
-  statsRow: {
+  logo: {
+    marginBottom: 20,
+  },
+  hero: {
+    borderRadius: 24,
+    padding: 20,
+    gap: 14,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 5,
+  },
+  greeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  heroStat: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 16,
-    paddingVertical: 16,
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
-  statValue: {
-    fontSize: 26,
+  heroStatText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
+  heroStatValue: {
+    fontSize: 17,
     fontWeight: '800',
-    color: COLORS.primaryPressed,
-  },
-  statLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.primaryPressed,
-    textAlign: 'center',
   },
   actions: {
-    flex: 1,
-    justifyContent: 'center',
+    marginTop: 28,
     gap: 12,
     width: '100%',
     maxWidth: 420,
@@ -188,28 +169,24 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 3,
   },
-  createButtonIcon: {
-    fontSize: 18,
-  },
   createButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
   secondaryButton: {
+    flexDirection: 'row',
     borderWidth: 2,
     borderColor: COLORS.primary,
     borderRadius: 28,
     paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   secondaryButtonText: {
     color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
-  },
-  buttonPressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.92,
   },
 });

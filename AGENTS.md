@@ -369,10 +369,10 @@ Avoid adding architectural layers unless they solve a real existing problem.
 
 # 10. Specialized Skills
 
-The project contains specialized Codex skills under:
+The project contains specialized Claude Code skills under:
 
 ```text
-.Codex/skills/
+.claude/skills/
 ```
 
 Available skills:
@@ -382,6 +382,7 @@ Available skills:
 * `supabase-backend-engineer`
 * `pedagogical-ai-engineer`
 * `qa-release-engineer`
+* `ios-design-director`
 
 Use relevant skills when their expertise applies.
 
@@ -455,6 +456,23 @@ Use for:
 * bug reproduction;
 * validation of completed features.
 
+## ios-design-director
+
+Use for:
+
+* visual/design direction on teacher- or student-facing screens ("make it feel less basic/more wow" requests, redesigns, visual audits);
+* establishing a compact visual system (colors, type, spacing, radii) for a specific screen or flow;
+* critiquing an existing screen against iOS Human Interface Guidelines and general product-design fundamentals.
+
+Adapted for this project — the skill is generic iOS/native design guidance; the following overrides govern how it's actually used here:
+
+* Futur Génie ships one shared Expo/React Native codebase across iOS, Android and web (§7, §8). Treat the skill's native-iOS specifics (SF Symbols, Liquid Glass/blur materials, SwiftUI, native sheets/gestures) as design *inspiration*, never an implementation target. Any direction it proposes must also read reasonably on Android and web. Native-iOS-only flourishes are optional and must degrade gracefully or be skipped rather than pull in a new native-only dependency for a cosmetic effect (§41) — do not add e.g. a blur library just to chase a materials trend.
+* This skill sets visual direction; `expo-mobile-engineer` implements it in React Native/Expo. It does not produce SwiftUI code or standalone native prototypes for this project.
+* It has no simulator, device, or screen-rendering access in this environment. Its "render then inspect the result" step means either a mockup published via the `design` skill for the project owner to review before code changes, or asking the project owner for a screenshot from the running app — never claiming a visual check that didn't happen.
+* Its "compact system" (tokens, states, components) stays scoped to the screen or flow actually being worked on. A project-wide design-system pass is out of scope until a concrete need forces it (§59 — "premature design systems" is an explicit anti-pattern).
+* The "wow" bar applies selectively: teacher-facing entry points and the public student quiz page are the product's shop windows and can justify more visual investment; routine screens (forms, settings) are allowed to stay calm and functional, per the skill's own guidance.
+* It does not override this file. Where its instincts (e.g. reaching for a trend, or proposing something elaborate) conflict with CLAUDE.md's MVP/simplicity/cost principles (§2, §55, §59), CLAUDE.md wins.
+
 ---
 
 # 11. Skill Orchestration
@@ -505,6 +523,16 @@ For a Supabase authorization bug:
 supabase-backend-engineer
         ↓
 qa-release-engineer
+```
+
+For a visual "wow"/redesign pass on an existing screen:
+
+```text
+ios-design-director (direction + critique)
+        ↓
+expo-mobile-engineer (implementation)
+        ↓
+qa-release-engineer if regression risk exists
 ```
 
 Do not turn skill orchestration into bureaucracy.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "iOS Design Director"
+  short_description: "Analyse, refonte et création de designs iOS marquants"
+  default_prompt: "Utilise $ios-design-director pour analyser mes captures ou créer mes écrans iOS avec une direction artistique distinctive et des références actuelles."

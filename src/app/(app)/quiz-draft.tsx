@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -451,7 +452,7 @@ function QuestionCard({
                     accessibilityLabel="Supprimer cette réponse"
                     hitSlop={8}
                   >
-                    <Text style={styles.removeChoiceText}>✕</Text>
+                    <Ionicons name="close-circle" size={20} color="#999999" />
                   </Pressable>
                 )}
               </View>
@@ -642,11 +643,6 @@ const styles = StyleSheet.create({
   choiceTextCorrect: {
     color: '#1F6E40',
     fontWeight: '600',
-  },
-  removeChoiceText: {
-    fontSize: 16,
-    color: '#999999',
-    paddingHorizontal: 2,
   },
   addChoiceText: {
     color: COLORS.primary,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -287,11 +288,15 @@ export default function PublicQuizScreen() {
                           isWrongSelected && styles.choiceOptionWrong,
                         ]}
                       >
-                        <Text style={styles.choiceText}>
-                          {submitted && isCorrectChoice ? '✅ ' : ''}
-                          {isWrongSelected ? '❌ ' : ''}
-                          {choice}
-                        </Text>
+                        <View style={styles.choiceRow}>
+                          {isCorrectChoice && (
+                            <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />
+                          )}
+                          {isWrongSelected && (
+                            <Ionicons name="close-circle" size={18} color="#D9463F" />
+                          )}
+                          <Text style={styles.choiceText}>{choice}</Text>
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -320,11 +325,15 @@ export default function PublicQuizScreen() {
                           isWrongSelected && styles.choiceOptionWrong,
                         ]}
                       >
-                        <Text style={styles.choiceText}>
-                          {submitted && isCorrectChoice ? '✅ ' : ''}
-                          {isWrongSelected ? '❌ ' : ''}
-                          {label}
-                        </Text>
+                        <View style={styles.choiceRow}>
+                          {isCorrectChoice && (
+                            <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />
+                          )}
+                          {isWrongSelected && (
+                            <Ionicons name="close-circle" size={18} color="#D9463F" />
+                          )}
+                          <Text style={styles.choiceText}>{label}</Text>
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -517,6 +526,11 @@ const styles = StyleSheet.create({
   choiceOptionWrong: {
     borderColor: '#D9463F',
     backgroundColor: '#FBEAEA',
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   choiceText: {
     fontSize: 15,

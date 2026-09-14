@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -58,7 +59,7 @@ export default function SuggestionsScreen() {
     return (
       <Screen style={styles.container}>
         <View style={styles.confirmation}>
-          <Text style={styles.confirmationEmoji}>💜</Text>
+          <Ionicons name="heart" size={40} color={COLORS.primary} />
           <Text style={styles.title}>Merci !</Text>
           <Text style={styles.body}>
             Votre message nous aide à décider quoi améliorer en priorité.
@@ -192,9 +193,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-  },
-  confirmationEmoji: {
-    fontSize: 40,
   },
   secondaryButton: {
     borderWidth: 2,

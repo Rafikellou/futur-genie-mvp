@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
@@ -248,7 +249,7 @@ function QuizRowItem({
     <View style={styles.row}>
       {isSelectMode && (
         <View style={[styles.checkbox, isSelected && styles.checkboxChecked, !isSelectable && styles.checkboxDisabled]}>
-          {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
+          {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
         </View>
       )}
       <View style={styles.rowText}>
@@ -466,11 +467,6 @@ const styles = StyleSheet.create({
   },
   checkboxDisabled: {
     borderColor: '#CCCCCC',
-  },
-  checkboxMark: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
   },
   rowText: {
     flexShrink: 1,

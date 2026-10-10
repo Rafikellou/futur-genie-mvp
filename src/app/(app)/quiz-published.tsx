@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
+import { EmptyState } from '@/components/EmptyState';
 import { GlassCard } from '@/components/GlassCard';
 import { HeroCard } from '@/components/HeroCard';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -31,11 +32,13 @@ export default function QuizPublishedScreen() {
     return (
       <Screen>
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.notFoundTitle}>Devoir introuvable</Text>
-          <Text style={styles.notFoundBody}>
-            Ce lien n&apos;est plus disponible. Retournez à l&apos;accueil et réessayez.
-          </Text>
-          <PrimaryButton label="Retour à l’accueil" onPress={() => router.replace('/')} />
+          <EmptyState
+            variant="problem"
+            icon="search-outline"
+            title="Devoir introuvable"
+            body="Ce devoir n’est plus disponible. Retournez à l’accueil et réessayez."
+            action={{ label: 'Retour à l’accueil', onPress: () => router.replace('/') }}
+          />
         </ScrollView>
       </Screen>
     );
@@ -152,15 +155,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-  },
-  notFoundTitle: {
-    ...type.title,
-    color: colors.text,
-  },
-  notFoundBody: {
-    ...type.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
   },
   badge: {
     alignSelf: 'flex-start',

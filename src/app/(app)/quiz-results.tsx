@@ -2,11 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { GlassCard } from '@/components/GlassCard';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { EmptyState } from '@/components/EmptyState';
 import { Screen } from '@/components/Screen';
 import { supabase } from '@shared/supabase/client';
 import { colors, fonts, gradients, radii, spacing, type } from '@/theme';
@@ -97,22 +97,26 @@ export default function QuizResultsScreen() {
           {header}
 
           {state.status === 'loading' && (
-            <View style={styles.centered}>
-              <ActivityIndicator size="large" color={colors.brandViolet} />
-            </View>
+            <EmptyState variant="loading" title="Chargement…" body="Les réponses arrivent." />
           )}
 
           {state.status === 'error' && (
-            <View style={styles.centered}>
-              <Text style={styles.body}>Impossible de charger les réponses pour le moment.</Text>
-              <PrimaryButton label="Réessayer" onPress={load} style={styles.retryButton} />
-            </View>
+            <EmptyState
+              variant="problem"
+              icon="wifi-outline"
+              title="Impossible de charger"
+              body="Vérifiez votre connexion, puis réessayez."
+              action={{ label: 'Réessayer', onPress: load }}
+            />
           )}
 
           {state.status === 'ready' && (
-            <View style={styles.centered}>
-              <Text style={styles.body}>Aucune réponse pour l&apos;instant.</Text>
-            </View>
+            <EmptyState
+              variant="info"
+              icon="people-outline"
+              title="Aucune réponse pour l’instant"
+              body="Les élèves apparaîtront ici dès qu’ils auront fait le devoir."
+            />
           )}
         </View>
       )}
@@ -212,20 +216,6 @@ const styles = StyleSheet.create({
     ...type.bodyStrong,
     flex: 1,
     color: colors.text,
-  },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 48,
-    gap: spacing.md,
-  },
-  body: {
-    ...type.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  retryButton: {
-    alignSelf: 'stretch',
   },
   row: {
     flexDirection: 'row',

@@ -133,10 +133,12 @@ export default function CreatePhotoScreen() {
         Alert.alert(
           'Devoir non créé',
           GENERATION_ERROR_MESSAGES[result.code],
+          // Button order and default (bold, isPreferred) follow
+          // docs/design Fenetres.dc.html.
           canRetakePhoto
             ? [
-                { text: 'Réessayer', style: 'cancel' },
-                { text: 'Reprendre la photo', onPress: () => setPhoto(null) },
+                { text: 'Reprendre la photo', onPress: () => setPhoto(null), isPreferred: true },
+                { text: 'Réessayer' },
               ]
             : [{ text: 'Réessayer' }]
         );
@@ -301,8 +303,8 @@ function showPermissionDeniedAlert(source: PhotoSource, canAskAgain: boolean) {
     'Autorisation nécessaire',
     `L'accès ${target} est désactivé pour Futur Génie. Autorisez-le dans les réglages de votre appareil pour continuer.`,
     [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Ouvrir les réglages', onPress: () => Linking.openSettings() },
+      { text: 'Ouvrir les réglages', onPress: () => Linking.openSettings(), isPreferred: true },
+      { text: 'Annuler' },
     ]
   );
 }

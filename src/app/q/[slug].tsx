@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { EmptyState } from '@/components/EmptyState';
 import { HeroCard } from '@/components/HeroCard';
 import { Logo } from '@/components/Logo';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -64,9 +64,13 @@ export default function PublicQuizScreen() {
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [submitted, setSubmitted] = useState(false);
   const footerSpace = useStickyFooterSpace();
-  // The quiz screen stays scrolled wherever the student left off when they
-  // submit; scroll it back to the top so the score is what they see next.
+  // After "Valider" the score card sits at the end of the page, right where
+  // the student just pressed the button; after "Recommencer" the page goes
+  // back to the first question. The scroll waits for the page's new height
+  // (onContentSizeChange): scrolling straight away raced the re-render, as
+  // the corrections and the score card change the content's length.
   const scrollRef = useRef<ScrollView>(null);
+  const pendingScrollRef = useRef<'top' | 'end' | null>(null);
   // Guards the background submission, not just the correction display: a
   // "Recommencer" (or a fast double-tap on "Valider") must never record a
   // second row for the same sitting — the teacher's results list should
@@ -125,8 +129,7 @@ export default function PublicQuizScreen() {
     return (
       <Screen>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.brandViolet} />
-          <Text style={styles.centeredBody}>Chargement du devoir…</Text>
+          <EmptyState variant="loading" title="Chargement du devoir…" body="Encore un instant !" />
         </View>
       </Screen>
     );
@@ -136,12 +139,13 @@ export default function PublicQuizScreen() {
     return (
       <Screen>
         <View style={styles.centered}>
-          <Logo size={44} showWordmark={false} />
-          <Text style={styles.centeredTitle}>Devoir introuvable</Text>
-          <Text style={styles.centeredBody}>
-            Ce lien n&apos;est plus valable. Demandez à votre enseignant·e de vous en renvoyer
-            un.
-          </Text>
+          <Logo size={36} />
+          <EmptyState
+            variant="problem"
+            icon="search-outline"
+            title="Devoir introuvable"
+            body="Ce lien n’est plus valable. Demande à ton enseignant·e de t’en renvoyer un."
+          />
         </View>
       </Screen>
     );
@@ -151,10 +155,14 @@ export default function PublicQuizScreen() {
     return (
       <Screen>
         <View style={styles.centered}>
-          <Logo size={44} showWordmark={false} />
-          <Text style={styles.centeredTitle}>Impossible d&apos;ouvrir ce devoir</Text>
-          <Text style={styles.centeredBody}>Vérifiez votre connexion Internet puis réessayez.</Text>
-          <PrimaryButton label="Réessayer" onPress={load} style={styles.centeredButton} />
+          <Logo size={36} />
+          <EmptyState
+            variant="problem"
+            icon="wifi-outline"
+            title="Impossible d’ouvrir ce devoir"
+            body="Vérifie ta connexion Internet puis réessaie."
+            action={{ label: 'Réessayer', onPress: load }}
+          />
         </View>
       </Screen>
     );
@@ -183,13 +191,12 @@ export default function PublicQuizScreen() {
   const handleRetry = () => {
     setAnswers(createEmptyAnswers(quiz.questions));
     setSubmitted(false);
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    pendingScrollRef.current = 'top';
   };
 
   const handleSubmit = () => {
     setSubmitted(true);
-    // Defer past this render so the score box exists before we scroll to it.
-    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
+    pendingScrollRef.current = 'end';
     // "Recommencer" still recomputes and shows the correction locally every
     // time (unchanged) — only the background recording is limited to the
     // first attempt of this sitting.
@@ -260,6 +267,13 @@ export default function PublicQuizScreen() {
     <Screen>
       <ScrollView
         ref={scrollRef}
+        onContentSizeChange={() => {
+          const pending = pendingScrollRef.current;
+          if (!pending) return;
+          pendingScrollRef.current = null;
+          if (pending === 'end') scrollRef.current?.scrollToEnd({ animated: true });
+          else scrollRef.current?.scrollTo({ y: 0, animated: true });
+        }}
         contentContainerStyle={[
           styles.content,
           // The footer also carries a one-line hint under the button.
@@ -268,37 +282,20 @@ export default function PublicQuizScreen() {
       >
         <Logo size={30} />
 
-        {summary ? (
-          <>
-            <HeroCard contentStyle={styles.scoreCard}>
-              <View accessibilityRole="summary" accessible>
-                <Text style={styles.scoreGreeting}>Bien joué {trimmedName} !</Text>
-                <Text style={styles.scoreValue}>
-                  {summary.correctCount}
-                  <Text style={styles.scoreTotal}> / {summary.gradableCount}</Text>
-                </Text>
-                <Text style={styles.scoreLabel}>
-                  bonne{summary.correctCount > 1 ? 's' : ''} réponse
-                  {summary.correctCount > 1 ? 's' : ''}
-                </Text>
-              </View>
-            </HeroCard>
-            <Text style={styles.correctionTitle} accessibilityRole="header">
-              La correction
-            </Text>
-          </>
+        <Text style={styles.title} accessibilityRole="header">
+          {quiz.title}
+        </Text>
+        <Text style={styles.instructions}>{quiz.instructions}</Text>
+        {submitted ? (
+          <Text style={styles.correctionTitle} accessibilityRole="header">
+            La correction
+          </Text>
         ) : (
-          <>
-            <Text style={styles.title} accessibilityRole="header">
-              {quiz.title}
-            </Text>
-            <Text style={styles.instructions}>{quiz.instructions}</Text>
-            <ProgressHeader
-              studentName={trimmedName}
-              answered={answeredCount}
-              total={quiz.questions.length}
-            />
-          </>
+          <ProgressHeader
+            studentName={trimmedName}
+            answered={answeredCount}
+            total={quiz.questions.length}
+          />
         )}
 
         {quiz.questions.map((question, index) => {
@@ -355,6 +352,23 @@ export default function PublicQuizScreen() {
             </View>
           );
         })}
+
+        {summary && (
+          // At the end of the page, where the student pressed "Valider".
+          <HeroCard contentStyle={styles.scoreCard}>
+            <View accessibilityRole="summary" accessible>
+              <Text style={styles.scoreGreeting}>Bien joué {trimmedName} !</Text>
+              <Text style={styles.scoreValue}>
+                {summary.correctCount}
+                <Text style={styles.scoreTotal}> / {summary.gradableCount}</Text>
+              </Text>
+              <Text style={styles.scoreLabel}>
+                bonne{summary.correctCount > 1 ? 's' : ''} réponse
+                {summary.correctCount > 1 ? 's' : ''}
+              </Text>
+            </View>
+          </HeroCard>
+        )}
 
         {submitted && (
           <Pressable
@@ -679,24 +693,12 @@ const styles = StyleSheet.create({
   },
   centered: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xxl,
-    gap: spacing.md,
-  },
-  centeredTitle: {
-    ...type.heroTitle,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  centeredBody: {
-    ...type.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  centeredButton: {
-    alignSelf: 'stretch',
-    marginTop: spacing.sm,
+    padding: spacing.screen,
+    gap: spacing.xl,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   invitation: {
     flexDirection: 'row',

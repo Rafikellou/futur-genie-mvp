@@ -6,6 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { BackButton } from '@/components/BackButton';
 import { Banner } from '@/components/Banner';
+import { EmptyState } from '@/components/EmptyState';
 import { GlassCard } from '@/components/GlassCard';
 import { QuizRecapPills } from '@/components/Pill';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -44,10 +45,13 @@ export default function QuizDraftScreen() {
       <Screen>
         <ScrollView contentContainerStyle={styles.content}>
           <BackButton onPress={() => router.back()} />
-          <Text style={styles.title}>Devoir introuvable</Text>
-          <Text style={styles.body}>
-            Ce brouillon n&apos;est plus disponible. Revenez en arrière et recommencez.
-          </Text>
+          <EmptyState
+            variant="problem"
+            icon="search-outline"
+            title="Devoir introuvable"
+            body="Ce devoir n’est plus disponible. Retournez à l’accueil et réessayez."
+            action={{ label: 'Retour à l’accueil', onPress: () => router.replace('/') }}
+          />
         </ScrollView>
       </Screen>
     );
@@ -85,17 +89,23 @@ export default function QuizDraftScreen() {
   }
 
   function promptAddQuestion() {
-    Alert.alert('Ajouter une question', 'Choisissez le type de question.', [
-      { text: 'Choix multiple', onPress: () => handleAddQuestion('multiple_choice') },
-      { text: 'Vrai ou Faux', onPress: () => handleAddQuestion('true_false') },
-      { text: 'Texte à trous', onPress: () => handleAddQuestion('gap_fill') },
-      { text: 'Annuler', style: 'cancel' },
-    ]);
+    Alert.alert(
+      'Ajouter une question',
+      'Choisissez le type de question.',
+      [
+        { text: 'Choix multiple', onPress: () => handleAddQuestion('multiple_choice') },
+        { text: 'Vrai ou Faux', onPress: () => handleAddQuestion('true_false') },
+        { text: 'Texte à trous', onPress: () => handleAddQuestion('gap_fill') },
+        { text: 'Annuler', style: 'cancel' },
+      ],
+      // Android alerts keep only their first 3 buttons, so "Annuler" is
+      // dropped there: tapping outside / the back button must dismiss instead.
+      { cancelable: true }
+    );
   }
 
   function handleDeleteQuestion(questionId: string) {
     Alert.alert('Supprimer cette question ?', 'Cette action est irréversible.', [
-      { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer',
         style: 'destructive',
@@ -104,6 +114,7 @@ export default function QuizDraftScreen() {
             prev ? { ...prev, questions: prev.questions.filter((q) => q.id !== questionId) } : prev
           ),
       },
+      { text: 'Annuler' },
     ]);
   }
 
@@ -525,14 +536,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  title: {
-    ...type.title,
-    color: colors.text,
-  },
-  body: {
-    ...type.body,
-    color: colors.textSecondary,
   },
   pressed: {
     opacity: 0.7,

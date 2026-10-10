@@ -54,7 +54,6 @@ export default function ProfileScreen() {
       'Supprimer votre compte ?',
       'Tous vos devoirs et les réponses de vos élèves seront définitivement supprimés. Cette action est irréversible.',
       [
-        { text: 'Annuler', style: 'cancel' },
         {
           text: 'Supprimer mon compte',
           style: 'destructive',
@@ -71,6 +70,7 @@ export default function ProfileScreen() {
             }
           },
         },
+        { text: 'Annuler' },
       ],
     );
   }

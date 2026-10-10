@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -21,6 +20,7 @@ import { supabase } from '@shared/supabase/client';
 import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS, type Subject } from '@shared/domain/subject';
 import { Banner } from '@/components/Banner';
+import { EmptyState } from '@/components/EmptyState';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useAboveTabBarOffset, useTabBarSpace } from '@/components/TabBar';
@@ -202,21 +202,32 @@ export default function MyQuizzesScreen() {
       )}
 
       {state.status === 'loading' && (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.brandViolet} />
+        <View style={styles.state}>
+          <EmptyState variant="loading" title="Chargement…" body="Vos devoirs arrivent." />
         </View>
       )}
 
       {state.status === 'error' && (
-        <View style={styles.centered}>
-          <Text style={styles.body}>Impossible de charger vos devoirs pour le moment.</Text>
-          <PrimaryButton label="Réessayer" onPress={() => load()} style={styles.retryButton} />
+        <View style={styles.state}>
+          <EmptyState
+            variant="problem"
+            icon="wifi-outline"
+            title="Impossible de charger"
+            body="Vérifiez votre connexion, puis réessayez."
+            action={{ label: 'Réessayer', onPress: () => load() }}
+          />
         </View>
       )}
 
       {state.status === 'ready' && state.rows.length === 0 && (
-        <View style={styles.centered}>
-          <Text style={styles.body}>Vous n&apos;avez pas encore créé de devoir.</Text>
+        <View style={styles.state}>
+          <EmptyState
+            variant="info"
+            icon="document-text-outline"
+            title="Aucun devoir pour l’instant"
+            body="Vous n’avez pas encore créé de devoir."
+            action={{ label: 'Créer un devoir', onPress: () => router.push('/create'), primary: true }}
+          />
         </View>
       )}
 
@@ -540,19 +551,8 @@ const styles = StyleSheet.create({
   selectHint: {
     marginBottom: spacing.xs,
   },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 48,
-    gap: spacing.md,
-  },
-  body: {
-    ...type.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  retryButton: {
-    alignSelf: 'stretch',
+  state: {
+    marginTop: spacing.lg,
   },
   list: {
     gap: spacing.sm,

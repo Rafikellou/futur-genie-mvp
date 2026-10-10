@@ -62,7 +62,7 @@ export const colors = {
 
   success: { background: '#E5F5EC', border: '#2E9E5B', text: '#1C6B40' },
   danger: { background: '#FDECEC', text: '#A3251F', solid: '#C2362F' },
-  warning: { background: '#FFF4E5', backgroundSoft: '#FFF7EC', border: '#E3A15A', text: '#8A4413', textSoft: '#9A5A12' },
+  warning: { background: '#FFF4E5', backgroundSoft: '#FFF7EC', border: '#E3A15A', text: '#8A4413', textSoft: '#9A5A12', icon: '#B25E12' },
   info: { background: 'rgba(59,76,240,0.08)', text: '#2A3290' },
 
   // Badge / pill tints (background, text), assigned per subject.

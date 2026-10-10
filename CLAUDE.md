@@ -36,6 +36,12 @@ Prefer fewer dependencies, fewer screens, fewer database tables and fewer abstra
 
 Do not anticipate hypothetical future requirements unless they affect a decision that would be expensive to reverse.
 
+## Current phase: production v1
+
+The golden-path workflow is complete and the app is preparing for a public App Store launch to test commercial traction. From this phase on, perceived quality and visual polish are product requirements, not nice-to-haves. Simplicity still governs features, data and architecture; it no longer argues against investing in design.
+
+This phase does not change the scope exclusions in §6 (no payment, gamification, etc.) or the security, privacy and AI rules.
+
 ---
 
 # 3. Primary Users
@@ -468,10 +474,11 @@ Adapted for this project — the skill is generic iOS/native design guidance; th
 
 * Futur Génie ships one shared Expo/React Native codebase across iOS, Android and web (§7, §8). Treat the skill's native-iOS specifics (SF Symbols, Liquid Glass/blur materials, SwiftUI, native sheets/gestures) as design *inspiration*, never an implementation target. Any direction it proposes must also read reasonably on Android and web. Native-iOS-only flourishes are optional and must degrade gracefully or be skipped rather than pull in a new native-only dependency for a cosmetic effect (§41) — do not add e.g. a blur library just to chase a materials trend.
 * This skill sets visual direction; `expo-mobile-engineer` implements it in React Native/Expo. It does not produce SwiftUI code or standalone native prototypes for this project.
-* It has no simulator, device, or screen-rendering access in this environment. Its "render then inspect the result" step means either a mockup published via the `design` skill for the project owner to review before code changes, or asking the project owner for a screenshot from the running app — never claiming a visual check that didn't happen.
-* Its "compact system" (tokens, states, components) stays scoped to the screen or flow actually being worked on. A project-wide design-system pass is out of scope until a concrete need forces it (§59 — "premature design systems" is an explicit anti-pattern).
-* The "wow" bar applies selectively: teacher-facing entry points and the public student quiz page are the product's shop windows and can justify more visual investment; routine screens (forms, settings) are allowed to stay calm and functional, per the skill's own guidance.
-* It does not override this file. Where its instincts (e.g. reaching for a trend, or proposing something elaborate) conflict with CLAUDE.md's MVP/simplicity/cost principles (§2, §55, §59), CLAUDE.md wins.
+* It has no simulator, device, or screen-rendering access in this environment. Its "render then inspect the result" step means either an HTML mockup for the project owner to review before code changes, or asking the project owner for a screenshot from the running app — never claiming a visual check that didn't happen.
+* The approved mockups and spec in `docs/design/` (start with `docs/design/README.md`) are the visual source of truth. Implement them faithfully; when a screen has no mockup, extrapolate from the closest one and flag it for the owner's review. Where the skill's own instincts differ from the approved mockups, the mockups win.
+* The app has ONE app-wide visual system (colors, gradients, typography, spacing, radii, shadows, glass surfaces, and the core components screens actually use — buttons, chips, cards, list rows, tab bar), centralized in `src/theme/`. Every screen follows it so the app reads as one product. No hard-coded colors, fonts, radii or shadows in screens.
+* All teacher-facing screens get the same level of care. Forms and settings stay calm and readable, but use the same visual language as the home screen. The public student page stays simpler and lighter (§36) yet carries the brand.
+* Visual decisions follow the approved design and this skill. Product scope, data, security, privacy, accessibility (§37) and AI rules still follow the rest of this file.
 
 ---
 
@@ -585,7 +592,7 @@ Before editing:
 
 Then implement the smallest coherent solution.
 
-Do not redesign unrelated parts of the application.
+Do not change the behavior of unrelated parts of the application. Applying the shared visual system (§10, `src/theme/`) across screens is not "unrelated redesign" — it is expected — as long as behavior, copy meaning and flows stay identical.
 
 ---
 
@@ -780,6 +787,18 @@ Perform:
 * Android testing
 * web testing
 * production environment configuration
+
+## Milestone 12 — Visual Redesign (production v1)
+
+Implement the approved design one step at a time, following the spec, screen map, rules and order in `docs/design/README.md` (theme and shared components first, then home, creation flow, my quizzes / results, profile and other screens, student page, states).
+
+Look, not behavior: no change to flows, data, database, RLS, Edge Functions or AI.
+
+After each step, TypeScript, lint and tests pass, then the owner checks it on a real device and sends a screenshot. Never claim a visual check that did not happen.
+
+Result:
+
+The app looks like one coherent, polished product without any change to the golden path.
 
 ---
 
@@ -1772,7 +1791,6 @@ Common warning signs:
 
 * creating interfaces with only one implementation and no realistic second implementation;
 * multiple abstraction layers around simple CRUD;
-* premature design systems;
 * generalized workflow engines;
 * generic repository patterns around Supabase;
 * custom authentication wrappers that duplicate Supabase;
@@ -1781,6 +1799,8 @@ Common warning signs:
 * queues without demonstrated need;
 * premature caching;
 * excessive configuration.
+
+Note: a single app-wide visual theme (`src/theme/`) is NOT overengineering. A generic component library beyond what screens actually use still is.
 
 If a straightforward implementation works well, use it.
 
@@ -1987,6 +2007,7 @@ When uncertain between two implementation approaches, prefer the one that:
 7. uses fewer dependencies;
 8. is easier to understand and maintain;
 9. is easier to reverse;
-10. gets the MVP into real teachers' hands sooner.
+10. gets the MVP into real teachers' hands sooner;
+11. looks and feels polished enough for a public App Store launch.
 
 Build the smallest reliable product that delivers the core promise.

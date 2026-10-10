@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>États de chargement, vides et erreurs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}a{color:#B8205F}a:hover{color:#8E1648}</style>
+</helmet>
+<div style="position: relative; width: 1380px; height: 900px; overflow: hidden; box-sizing: border-box; padding: 44px 50px; background: #F5F6FD; font-family: 'DM Sans', system-ui, sans-serif; color: #141A46">
+  <div aria-hidden="true" style="position: absolute; width: 520px; height: 520px; right: -160px; top: -200px; border-radius: 50%; background: #5B6CFF; opacity: 0.28; filter: blur(100px)"></div>
+  <div aria-hidden="true" style="position: absolute; width: 460px; height: 460px; left: -120px; bottom: -180px; border-radius: 50%; background: #FFA05C; opacity: 0.25; filter: blur(100px)"></div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 28px">
+    <div>
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -0.02em">Chargement, vide, erreur</h1>
+      <p style="margin: 6px 0 0 0; font-size: 16px; color: #555B80">Un seul gabarit centré pour tous les écrans : illustration, phrase courte, et une action quand il y en a une.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px">
+      <sc-for list="{{states}}" as="s" hint-placeholder-count="8">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #555B80">{{s.where}}</span>
+          <div style="height: 300px; box-sizing: border-box; padding: 24px; border-radius: 28px; background: rgba(255,255,255,0.72); border: 1px solid rgba(255,255,255,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center">
+            <sc-if value="{{s.spinner}}" hint-placeholder-val="{{ false }}">
+              <div aria-hidden="true" style="width: 56px; height: 56px; border-radius: 50%; box-sizing: border-box; border: 5px solid #E3E6F3; border-top-color: #7B2FE0; border-right-color: #D9286E"></div>
+            </sc-if>
+            <sc-if value="{{s.hasIcon}}" hint-placeholder-val="{{ true }}">
+              <div style="width: 64px; height: 64px; border-radius: 22px; display: flex; align-items: center; justify-content: center; background: {{s.iconBg}}; color: {{s.iconInk}}">
+                <svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{s.icon}}"></path></svg>
+              </div>
+            </sc-if>
+            <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 18px; line-height: 1.25">{{s.title}}</h2>
+            <p style="margin: 0; font-size: 14px; line-height: 1.45; color: #555B80">{{s.body}}</p>
+            <sc-if value="{{s.hasAction}}" hint-placeholder-val="{{ true }}">
+              <button type="button" style="margin-top: 4px; height: 46px; padding: 0 20px; border-radius: 16px; border: {{s.btnBorder}}; background: {{s.btnBg}}; color: {{s.btnInk}}; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600">{{s.action}}</button>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1380,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ICON = {
+      doc: 'M14 3H6v18h12V7z M14 3v4h4 M9 12h6 M9 16h6',
+      people: 'M9 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 1 0 0 7 M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5 M16 4.5a3.5 3.5 0 0 1 0 7',
+      wifi: 'M2 9a15 15 0 0 1 20 0 M5.5 12.5a10 10 0 0 1 13 0 M9 16a5 5 0 0 1 6 0 M12 19.5v.01',
+      search: 'M11 18a7 7 0 1 0 0-14a7 7 0 1 0 0 14 M20 20l-4-4 M8.5 11h5'
+    };
+    const brand = { iconBg: 'linear-gradient(135deg, #E3E7FF, #FBE1EE)', iconInk: '#3140D6' };
+    const warn = { iconBg: '#FFF4E5', iconInk: '#B25E12' };
+    const primary = { btnBg: 'linear-gradient(90deg, #D9286E 0%, #8B2FE0 100%)', btnInk: '#FFFFFF', btnBorder: 'none' };
+    const secondary = { btnBg: '#FFFFFF', btnInk: '#3140D6', btnBorder: '1px solid #DCE0F2' };
+    const base = { spinner: false, hasIcon: true, hasAction: false };
+    return {
+      states: [
+        { ...base, where: 'Mes devoirs · chargement', spinner: true, hasIcon: false, title: 'Chargement…', body: 'Vos devoirs arrivent.' },
+        { ...base, ...brand, ...primary, where: 'Mes devoirs · vide', icon: ICON.doc, title: 'Aucun devoir pour l’instant', body: 'Vous n’avez pas encore créé de devoir.', hasAction: true, action: 'Créer un devoir' },
+        { ...base, ...brand, where: 'Réponses · vide', icon: ICON.people, title: 'Aucune réponse pour l’instant', body: 'Les élèves apparaîtront ici dès qu’ils auront fait le devoir.' },
+        { ...base, ...warn, ...secondary, where: 'Mes devoirs / Réponses · erreur', icon: ICON.wifi, title: 'Impossible de charger', body: 'Vérifiez votre connexion, puis réessayez.', hasAction: true, action: 'Réessayer' },
+        { ...base, ...warn, ...secondary, where: 'Relecture / Publié · introuvable', icon: ICON.search, title: 'Devoir introuvable', body: 'Ce devoir n’est plus disponible. Retournez à l’accueil et réessayez.', hasAction: true, action: 'Retour à l’accueil' },
+        { ...base, where: 'Élève · chargement', spinner: true, hasIcon: false, title: 'Chargement du devoir…', body: 'Encore un instant !' },
+        { ...base, ...warn, where: 'Élève · lien périmé', icon: ICON.search, title: 'Devoir introuvable', body: 'Ce lien n’est plus valable. Demande à ton enseignant·e de t’en renvoyer un.' },
+        { ...base, ...warn, ...secondary, where: 'Élève · erreur', icon: ICON.wifi, title: 'Impossible d’ouvrir ce devoir', body: 'Vérifie ta connexion Internet puis réessaie.', hasAction: true, action: 'Réessayer' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

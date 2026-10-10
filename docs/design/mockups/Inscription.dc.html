@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Inscription</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}a{color:#B8205F}a:hover{color:#8E1648}</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 900px; overflow: hidden; background: #F5F6FD; font-family: 'DM Sans', system-ui, sans-serif; color: #141A46">
+  <div aria-hidden="true" style="position: absolute; width: 380px; height: 380px; left: -150px; top: -150px; border-radius: 50%; background: #5B6CFF; opacity: 0.38; filter: blur(80px)"></div>
+  <div aria-hidden="true" style="position: absolute; width: 300px; height: 300px; right: -160px; top: 300px; border-radius: 50%; background: #F0458A; opacity: 0.3; filter: blur(90px)"></div>
+  <div aria-hidden="true" style="position: absolute; width: 260px; height: 260px; left: -40px; bottom: -120px; border-radius: 50%; background: #FFA05C; opacity: 0.28; filter: blur(90px)"></div>
+
+  <div style="position: relative; display: flex; flex-direction: column; padding: 64px 22px 0 22px; gap: 20px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <img src="/_blob/f471c8dad58ca739e9bd4d7c8ddbf38a" alt="" style="width: 44px; height: 44px; object-fit: contain">
+      <div>
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.02em">Créer un compte</h1>
+        <p style="margin: 2px 0 0 0; font-size: 15px; color: #555B80">Quelques informations pour commencer.</p>
+      </div>
+    </div>
+
+    <form style="display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 28px; background: rgba(255,255,255,0.72); border: 1px solid rgba(255,255,255,0.95); box-shadow: 0 16px 40px rgba(20,26,70,0.08)">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="name" style="font-size: 14px; font-weight: 600">Nom affiché</label>
+        <input id="name" placeholder="Mme Dupont" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1px solid #DCE0F2; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="email" style="font-size: 14px; font-weight: 600">Adresse e-mail</label>
+        <input id="email" type="email" placeholder="prenom.nom@ecole.fr" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1px solid #DCE0F2; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="pwd" style="font-size: 14px; font-weight: 600">Mot de passe</label>
+        <input id="pwd" type="password" placeholder="6 caractères minimum" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1px solid #DCE0F2; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="pwd2" style="font-size: 14px; font-weight: 600">Confirmer le mot de passe</label>
+        <input id="pwd2" type="password" value="motdepasse" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1.5px solid #C2362F; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #A3251F">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 16.5v.01"></path></svg>
+          Les mots de passe ne correspondent pas.
+        </span>
+      </div>
+      <button type="button" disabled style="height: 56px; border: none; border-radius: 20px; background: linear-gradient(90deg, #D9286E 0%, #8B2FE0 100%); opacity: 0.45; color: #FFFFFF; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 17px">Créer un compte</button>
+    </form>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+      <p style="margin: 0; font-size: 15px; color: #555B80">Déjà un compte ? <a href="Connexion.dc.html" style="font-weight: 600; text-decoration: none">Se connecter</a></p>
+      <a href="Confidentialite.dc.html" style="font-size: 14px; color: #555B80">Politique de confidentialité</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

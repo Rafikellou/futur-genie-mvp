@@ -1,26 +1,31 @@
 import type { ReactNode } from 'react';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { BackButton } from '@/components/BackButton';
+import { GlassCard } from '@/components/GlassCard';
 import { Screen } from '@/components/Screen';
-import { COLORS } from '@/theme/colors';
+import { colors, fonts, radii, spacing, type } from '@/theme';
 
 // Public route, deliberately outside the (app)/(auth) groups (same pattern
 // as src/app/q/[slug].tsx) so it needs no session and no navigation guard —
 // required both as the App Store Connect / TestFlight privacy policy URL
 // and as an in-app page a signed-out visitor can read. Content describes
 // what the product actually does; keep it in sync with CLAUDE.md §29/§31-33
-// whenever data handling changes.
+// whenever data handling changes. The redesign changed only the layout
+// (numbered cards) — the wording is the reviewed one, keep it as is.
 export default function PrivacyScreen() {
   return (
-    <Screen style={styles.screen}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button">
-          <Text style={styles.back}>‹ Retour</Text>
-        </Pressable>
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content}>
+        <BackButton onPress={() => router.back()} />
 
-        <Text style={styles.title}>Politique de confidentialité</Text>
-        <Text style={styles.updated}>Dernière mise à jour : 28 août 2026</Text>
+        <View>
+          <Text style={styles.title} accessibilityRole="header">
+            Politique de confidentialité
+          </Text>
+          <Text style={styles.updated}>Dernière mise à jour : 28 août 2026</Text>
+        </View>
 
         <Text style={styles.paragraph}>
           Futur Génie aide les enseignants à créer des devoirs à partir d’une photo de leçon.
@@ -28,7 +33,7 @@ export default function PrivacyScreen() {
           combien de temps.
         </Text>
 
-        <Section title="Ce que nous collectons sur l’enseignant">
+        <Section number={1} title="Ce que nous collectons sur l’enseignant">
           <Bullet>Adresse e-mail et mot de passe, pour la connexion au compte.</Bullet>
           <Bullet>
             Civilité, prénom et nom, pour identifier l’enseignant et afficher son nom aux élèves sur
@@ -44,7 +49,7 @@ export default function PrivacyScreen() {
           </Bullet>
         </Section>
 
-        <Section title="La photo de la leçon">
+        <Section number={2} title="La photo de la leçon">
           <Bullet>
             La photo est envoyée de façon sécurisée à notre service pour générer les questions,
             puis n’est jamais conservée : elle n’est ni stockée sur nos serveurs, ni gardée après
@@ -56,7 +61,7 @@ export default function PrivacyScreen() {
           </Bullet>
         </Section>
 
-        <Section title="Ce que nous collectons sur les élèves">
+        <Section number={3} title="Ce que nous collectons sur les élèves">
           <Bullet>
             Aucun compte, aucune inscription : un élève ouvre le lien du devoir et y répond
             directement.
@@ -72,7 +77,7 @@ export default function PrivacyScreen() {
           </Bullet>
         </Section>
 
-        <Section title="Ce que nous ne faisons pas">
+        <Section number={4} title="Ce que nous ne faisons pas">
           <Bullet>Pas de publicité, pas de revente de données.</Bullet>
           <Bullet>Pas de suivi publicitaire ni d’outil d’analyse tiers dans l’application.</Bullet>
           <Bullet>
@@ -81,21 +86,21 @@ export default function PrivacyScreen() {
           </Bullet>
         </Section>
 
-        <Section title="Où sont hébergées les données">
+        <Section number={5} title="Où sont hébergées les données">
           <Bullet>
             Sur des serveurs Supabase situés dans l’Union européenne. Les échanges avec
             l’application sont chiffrés (HTTPS).
           </Bullet>
         </Section>
 
-        <Section title="Combien de temps sont-elles conservées">
+        <Section number={6} title="Combien de temps sont-elles conservées">
           <Bullet>
             Aussi longtemps que le compte enseignant existe. La photo de leçon n’est, elle,
             jamais conservée au-delà de la génération du devoir (voir ci-dessus).
           </Bullet>
         </Section>
 
-        <Section title="Vos droits">
+        <Section number={7} title="Vos droits">
           <Bullet>
             Un enseignant peut supprimer définitivement son compte et toutes les données
             associées (devoirs, réponses d’élèves) directement depuis l’écran « Mon profil » de
@@ -111,86 +116,91 @@ export default function PrivacyScreen() {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ number, title, children }: { number: number; title: string; children: ReactNode }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <GlassCard style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionNumber}>
+          <Text style={styles.sectionNumberText}>{number}</Text>
+        </View>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {title}
+        </Text>
+      </View>
       {children}
-    </View>
+    </GlassCard>
   );
 }
 
 function Bullet({ children }: { children: ReactNode }) {
-  return (
-    <View style={styles.bulletRow}>
-      <Text style={styles.bulletMark}>•</Text>
-      <Text style={styles.bulletText}>{children}</Text>
-    </View>
-  );
+  return <Text style={styles.bullet}>{children}</Text>;
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: '#FFFFFF',
-  },
-  container: {
-    flex: 1,
-  },
   content: {
-    padding: 24,
-    paddingBottom: 48,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    paddingBottom: 40,
+    gap: spacing.lg,
     maxWidth: 640,
     width: '100%',
     alignSelf: 'center',
   },
-  back: {
-    color: COLORS.primary,
-    fontSize: 16,
-    marginBottom: 16,
-  },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
+    ...type.heroTitle,
+    color: colors.text,
   },
   updated: {
-    fontSize: 13,
-    color: '#98A2B3',
-    marginBottom: 20,
+    ...type.meta,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   paragraph: {
+    ...type.body,
     fontSize: 15,
-    lineHeight: 22,
-    color: '#333333',
-    marginBottom: 24,
+    lineHeight: 23,
+    color: colors.textBody,
   },
   section: {
-    marginBottom: 20,
+    padding: 18,
+    gap: 10,
+    borderRadius: radii.chip,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sectionNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.tint.blue.background,
+  },
+  sectionNumberText: {
+    fontFamily: fonts.heading,
+    fontSize: 15,
+    color: colors.actionText,
   },
   sectionTitle: {
+    ...type.sectionTitle,
     fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 10,
-    color: '#101828',
-  },
-  bulletRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    gap: 8,
-  },
-  bulletMark: {
-    fontSize: 15,
-    color: COLORS.primary,
-    lineHeight: 22,
-  },
-  bulletText: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#333333',
+    color: colors.text,
+  },
+  bullet: {
+    ...type.label,
+    fontFamily: fonts.body,
+    lineHeight: 21,
+    color: colors.textBody,
+    paddingLeft: 14,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.tint.blue.background,
   },
   emphasis: {
-    fontWeight: '600',
-    color: '#101828',
+    fontFamily: fonts.bodySemiBold,
+    color: colors.text,
   },
 });

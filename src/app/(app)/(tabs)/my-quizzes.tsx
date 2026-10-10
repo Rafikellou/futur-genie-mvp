@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   SectionList,
@@ -12,12 +15,28 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@shared/supabase/client';
+import { GRADES } from '@shared/domain/grade';
+import { SUBJECTS, type Subject } from '@shared/domain/subject';
+import { Banner } from '@/components/Banner';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { useAboveTabBarOffset, useTabBarSpace } from '@/components/TabBar';
 import { composeShareText } from '@/features/quiz-sharing/composeShareText';
 import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
-import { COLORS } from '@/theme/colors';
+import {
+  colors,
+  fonts,
+  gradients,
+  radii,
+  shadows,
+  sizes,
+  spacing,
+  subjectStyles,
+  type,
+} from '@/theme';
 
 // Minimal entry point (Milestone 9): just enough to see one's own quizzes and
 // reach a published one's results. Full history UX (filters, reopen a draft,
@@ -32,6 +51,10 @@ type QuizRow = {
   id: string;
   title: string;
   status: 'draft' | 'published' | 'archived';
+  grade: string;
+  subject: Subject;
+  // Only the questions array of `quiz_data`, to show the count on each row.
+  questions: unknown;
   created_at: string;
   published_at: string | null;
   public_slug: string | null;
@@ -85,8 +108,13 @@ type LoadState =
   | { status: 'error' }
   | { status: 'ready'; rows: QuizRow[] };
 
+// Room left under the list for the selection bar in select mode.
+const FOOTER_SPACE = 96;
+
 export default function MyQuizzesScreen() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const tabBarSpace = useTabBarSpace();
+  const selectionBarBottom = useAboveTabBarOffset();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -100,13 +128,15 @@ export default function MyQuizzesScreen() {
     // rows — no explicit teacher_id filter needed.
     const { data, error } = await supabase
       .from('quizzes')
-      .select('id, title, status, created_at, published_at, public_slug')
+      .select(
+        'id, title, status, grade, subject, questions:quiz_data->questions, created_at, published_at, public_slug'
+      )
       .order('created_at', { ascending: false });
 
     if (error || !data) {
       setState({ status: 'error' });
     } else {
-      setState({ status: 'ready', rows: data });
+      setState({ status: 'ready', rows: data as QuizRow[] });
     }
     setIsRefreshing(false);
   }, []);
@@ -139,41 +169,48 @@ export default function MyQuizzesScreen() {
     [state]
   );
 
+  const canSelect =
+    state.status === 'ready' && state.rows.filter((r) => r.status === 'published').length > 1;
+
   return (
     <Screen style={styles.container}>
       <View style={styles.header}>
-        {state.status === 'ready' &&
-          state.rows.filter((r) => r.status === 'published').length > 1 && (
-            <Pressable
-              onPress={() => (isSelectMode ? exitSelectMode() : setIsSelectMode(true))}
-              accessibilityRole="button"
-            >
-              <Text style={styles.selectToggle}>
-                {isSelectMode ? 'Annuler' : 'Partager plusieurs'}
-              </Text>
-            </Pressable>
-          )}
+        <Text style={styles.title} accessibilityRole="header">
+          Mes devoirs
+        </Text>
+        {canSelect && (
+          <Pressable
+            onPress={() => (isSelectMode ? exitSelectMode() : setIsSelectMode(true))}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+          >
+            {!isSelectMode && <Ionicons name="share-outline" size={16} color={colors.actionText} />}
+            <Text style={styles.headerButtonText}>
+              {isSelectMode ? 'Annuler' : 'Partager plusieurs'}
+            </Text>
+          </Pressable>
+        )}
       </View>
-      <Text style={styles.title}>Mes devoirs</Text>
 
       {isSelectMode && (
-        <Text style={styles.selectHint}>
-          Cochez les devoirs à envoyer, puis partagez-les en un seul message.
-        </Text>
+        <View style={styles.selectHint}>
+          <Banner
+            tone="info"
+            messages="Cochez les devoirs à envoyer, puis partagez-les en un seul message."
+          />
+        </View>
       )}
 
       {state.status === 'loading' && (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.brandViolet} />
         </View>
       )}
 
       {state.status === 'error' && (
         <View style={styles.centered}>
           <Text style={styles.body}>Impossible de charger vos devoirs pour le moment.</Text>
-          <Pressable style={styles.button} onPress={() => load()} accessibilityRole="button">
-            <Text style={styles.buttonText}>Réessayer</Text>
-          </Pressable>
+          <PrimaryButton label="Réessayer" onPress={() => load()} style={styles.retryButton} />
         </View>
       )}
 
@@ -189,7 +226,12 @@ export default function MyQuizzesScreen() {
           keyExtractor={(row) => row.id}
           stickySectionHeadersEnabled={false}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={() => load(true)} />
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => load(true)}
+              tintColor={colors.brandViolet}
+              colors={[colors.brandViolet]}
+            />
           }
           renderSectionHeader={({ section }) => (
             <Text style={styles.sectionHeader}>{section.title}</Text>
@@ -202,22 +244,25 @@ export default function MyQuizzesScreen() {
               onToggleSelected={() => toggleSelected(item.id)}
             />
           )}
-          contentContainerStyle={[styles.list, isSelectMode && styles.listWithFooter]}
+          contentContainerStyle={[
+            styles.list,
+            { paddingBottom: tabBarSpace + (isSelectMode ? FOOTER_SPACE : 0) },
+          ]}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
       {isSelectMode && selectedIds.size > 0 && (
-        <View style={styles.selectionBar}>
+        <View style={[styles.selectionBar, { bottom: selectionBarBottom }]}>
           <Text style={styles.selectionCount}>
             {selectedQuizzes.length} sélectionné{selectedQuizzes.length > 1 ? 's' : ''}
           </Text>
-          <Pressable
-            style={styles.button}
+          <PrimaryButton
+            label="Partager la sélection"
+            icon="share-outline"
             onPress={() => setIsComposeOpen(true)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.buttonText}>Partager la sélection</Text>
-          </Pressable>
+            style={styles.selectionButton}
+          />
         </View>
       )}
 
@@ -241,24 +286,63 @@ function QuizRowItem({
   isSelected: boolean;
   onToggleSelected: () => void;
 }) {
-  const date = new Date(row.created_at).toLocaleDateString('fr-FR');
   const statusLabel = row.status === 'published' ? 'Publié' : row.status === 'draft' ? 'Brouillon' : 'Archivé';
   const isSelectable = isSelectMode && row.status === 'published';
+  const gradeLabel = GRADES.find((g) => g.value === row.grade)?.label ?? row.grade;
+  const subjectLabel = SUBJECTS.find((s) => s.value === row.subject)?.label ?? row.subject;
+  const questionCount = Array.isArray(row.questions) ? row.questions.length : null;
+  const subjectStyle = subjectStyles[row.subject] ?? subjectStyles.autre;
 
-  const content = (
-    <View style={styles.row}>
-      {isSelectMode && (
-        <View style={[styles.checkbox, isSelected && styles.checkboxChecked, !isSelectable && styles.checkboxDisabled]}>
-          {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-        </View>
-      )}
+  const content = isSelectMode ? (
+    <View style={[styles.row, isSelected && styles.rowSelected]}>
+      <View style={[styles.checkbox, !isSelected && styles.checkboxEmpty]}>
+        {isSelected && (
+          <>
+            <LinearGradient {...gradients.selected} style={styles.checkboxFill} />
+            <Ionicons name="checkmark" size={16} color={colors.textOnBrand} />
+          </>
+        )}
+      </View>
       <View style={styles.rowText}>
         <Text style={styles.rowTitle}>{row.title}</Text>
         <Text style={styles.rowMeta}>
-          {statusLabel} · {date}
+          {statusLabel} · {gradeLabel} · {subjectLabel}
         </Text>
       </View>
-      {!isSelectMode && row.status === 'published' && <Text style={styles.rowChevron}>›</Text>}
+    </View>
+  ) : (
+    <View style={styles.row}>
+      <View style={[styles.subjectTile, { backgroundColor: subjectStyle.tint.background }]}>
+        <Text
+          style={[styles.subjectTag, { color: subjectStyle.tint.text }]}
+          accessibilityLabel={subjectLabel}
+        >
+          {subjectStyle.tag}
+        </Text>
+      </View>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{row.title}</Text>
+        <View style={styles.rowMetaLine}>
+          <View
+            style={[styles.statusBadge, row.status === 'published' && styles.statusBadgePublished]}
+          >
+            <Text
+              style={[styles.statusText, row.status === 'published' && styles.statusTextPublished]}
+            >
+              {statusLabel}
+            </Text>
+          </View>
+          <Text style={styles.rowMeta} numberOfLines={1}>
+            {gradeLabel}
+            {questionCount != null
+              ? ` · ${questionCount} question${questionCount > 1 ? 's' : ''}`
+              : ''}
+          </Text>
+        </View>
+      </View>
+      {row.status === 'published' && (
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      )}
     </View>
   );
 
@@ -273,7 +357,7 @@ function QuizRowItem({
         onPress={onToggleSelected}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: isSelected }}
-        style={styles.rowPressable}
+        accessibilityLabel={row.title}
       >
         {content}
       </Pressable>
@@ -298,7 +382,7 @@ function QuizRowItem({
         })
       }
       accessibilityRole="button"
-      style={styles.rowPressable}
+      style={({ pressed }) => pressed && styles.pressed}
     >
       {content}
     </Pressable>
@@ -319,6 +403,7 @@ function ShareComposeModal({
   // an AI-generated quiz before publishing it (CLAUDE.md §3).
   const [text, setText] = useState('');
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
@@ -330,220 +415,355 @@ function ShareComposeModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  async function handleCopy() {
+    const ok = await copyText(text);
+    if (ok) {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    }
+  }
+
+  // A transparent RN Modal styled as a bottom sheet over a dimmed backdrop.
+  // Faded in rather than slid, so the backdrop doesn't slide up with it.
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <Screen style={styles.modalContainer}>
-        <Pressable onPress={onClose} accessibilityRole="button">
-          <Text style={styles.back}>‹ Annuler</Text>
-        </Pressable>
-        <Text style={styles.title}>Partager {quizzes.length} devoir{quizzes.length > 1 ? 's' : ''}</Text>
-        <Text style={styles.body}>Vous pouvez modifier le message avant de l&apos;envoyer.</Text>
-
-        <TextInput
-          style={styles.composeInput}
-          value={text}
-          onChangeText={setText}
-          multiline
-          textAlignVertical="top"
-          accessibilityLabel="Message à partager"
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <Pressable
+          style={{ height: insets.top + spacing.lg }}
+          onPress={onClose}
+          accessibilityLabel="Fermer"
+          importantForAccessibility="no"
+          accessibilityElementsHidden
         />
+        <KeyboardAvoidingView
+          style={styles.sheetWrapper}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View
+            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.sm }]}
+            accessibilityViewIsModal
+          >
+            <View style={styles.grabber} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle} accessibilityRole="header">
+                Partager {quizzes.length} devoir{quizzes.length > 1 ? 's' : ''}
+              </Text>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Fermer"
+                style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            <Text style={styles.sheetBody}>Vous pouvez modifier le message avant de l’envoyer.</Text>
 
-        <View style={styles.shareRow}>
-          <Pressable
-            style={styles.shareButton}
-            onPress={() => shareText(text)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.shareButtonText}>Partager</Text>
-          </Pressable>
-          <Pressable
-            style={styles.shareButton}
-            onPress={async () => {
-              const ok = await copyText(text);
-              if (ok) {
-                setCopyFeedback(true);
-                setTimeout(() => setCopyFeedback(false), 2000);
-              }
-            }}
-            accessibilityRole="button"
-          >
-            <Text style={styles.shareButtonText}>{copyFeedback ? 'Texte copié ✓' : 'Copier le texte'}</Text>
-          </Pressable>
-        </View>
-      </Screen>
+            <TextInput
+              style={styles.composeInput}
+              value={text}
+              onChangeText={setText}
+              multiline
+              textAlignVertical="top"
+              accessibilityLabel="Message à partager"
+            />
+
+            <View style={styles.shareRow}>
+              <PrimaryButton
+                label="Partager"
+                icon="share-outline"
+                onPress={() => shareText(text)}
+                style={styles.shareButton}
+              />
+              <Pressable
+                onPress={handleCopy}
+                accessibilityRole="button"
+                accessibilityLabel={copyFeedback ? 'Texte copié' : 'Copier le texte'}
+                style={({ pressed }) => [
+                  styles.shareButton,
+                  styles.copyButton,
+                  copyFeedback && styles.copyButtonDone,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name={copyFeedback ? 'checkmark' : 'copy-outline'}
+                  size={18}
+                  color={copyFeedback ? colors.success.text : colors.actionText}
+                />
+                <Text style={[styles.copyText, copyFeedback && styles.copyTextDone]}>
+                  {copyFeedback ? 'Texte copié' : 'Copier le texte'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 24,
+    paddingHorizontal: spacing.screen,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    minHeight: 24,
-    marginBottom: 4,
-  },
-  back: {
-    color: COLORS.primary,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  selectToggle: {
-    color: COLORS.primary,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'right',
-    flexShrink: 1,
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
+    ...type.title,
+    color: colors.text,
+  },
+  headerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: sizes.touchTarget,
+    paddingHorizontal: 14,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceGlass,
+    borderWidth: 1,
+    borderColor: colors.surfaceGlassBorder,
+  },
+  headerButtonText: {
+    ...type.labelStrong,
+    color: colors.actionText,
   },
   selectHint: {
-    fontSize: 14,
-    color: '#555555',
-    marginTop: -8,
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#777777',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginTop: 8,
-    marginBottom: 2,
+    marginBottom: spacing.xs,
   },
   centered: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 48,
-    gap: 12,
+    gap: spacing.md,
   },
   body: {
-    fontSize: 15,
-    color: '#333333',
+    ...type.body,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
+  retryButton: {
+    alignSelf: 'stretch',
+  },
   list: {
-    gap: 10,
-    paddingBottom: 24,
+    gap: spacing.sm,
   },
-  listWithFooter: {
-    paddingBottom: 96,
-  },
-  rowPressable: {
-    borderRadius: 12,
-  },
-  rowDisabled: {
-    opacity: 0.6,
+  sectionHeader: {
+    ...type.metaStrong,
+    letterSpacing: 0.78,
+    textTransform: 'uppercase',
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.xs,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F7F7F8',
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    gap: spacing.md,
+    minHeight: 64,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radii.row,
+    backgroundColor: colors.surfaceGlass,
+    borderWidth: 1,
+    borderColor: colors.surfaceGlassBorder,
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+  rowSelected: {
+    backgroundColor: colors.surfaceSelected,
+    borderWidth: 1.5,
+    borderColor: colors.brandViolet,
+  },
+  rowDisabled: {
+    opacity: 0.6,
+  },
+  subjectTile: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: COLORS.primary,
-  },
-  checkboxDisabled: {
-    borderColor: '#CCCCCC',
+  subjectTag: {
+    fontFamily: fonts.heading,
+    fontSize: 14,
   },
   rowText: {
-    flexShrink: 1,
-    flexGrow: 1,
-    gap: 4,
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
   },
   rowTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    ...type.bodyStrong,
+    lineHeight: 19,
+    color: colors.text,
+  },
+  rowMetaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   rowMeta: {
-    fontSize: 13,
-    color: '#777777',
+    ...type.meta,
+    flexShrink: 1,
+    color: colors.textSecondary,
   },
-  rowChevron: {
-    fontSize: 20,
-    color: '#AAAAAA',
+  statusBadge: {
+    height: 20,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: colors.track,
   },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  statusBadgePublished: {
+    backgroundColor: colors.success.background,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+  statusText: {
+    ...type.metaStrong,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  statusTextPublished: {
+    color: colors.success.text,
+  },
+  checkbox: {
+    width: 26,
+    height: 26,
+    borderRadius: radii.badge,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  checkboxEmpty: {
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+  },
+  checkboxFill: {
+    ...StyleSheet.absoluteFill,
   },
   selectionBar: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    padding: 16,
+    left: sizes.tabBarMargin,
+    right: sizes.tabBarMargin,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 10,
+    paddingLeft: 18,
+    paddingRight: 10,
+    borderRadius: radii.card,
+    backgroundColor: colors.text,
+    boxShadow: shadows.selectionBar,
+  },
+  selectionCount: {
+    ...type.bodyStrong,
+    flex: 1,
+    color: colors.textOnBrand,
+  },
+  selectionButton: {
+    minHeight: sizes.compactButton,
+    borderRadius: radii.input,
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: colors.backdrop,
+  },
+  sheetWrapper: {
+    flex: 1,
+  },
+  sheet: {
+    flex: 1,
+    gap: spacing.lg,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.screen,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    backgroundColor: colors.sheet,
+    boxShadow: shadows.bottomSheet,
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.trackDashed,
+  },
+  sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  selectionCount: {
+  sheetTitle: {
+    ...type.title,
+    fontSize: 26,
+    flexShrink: 1,
+    color: colors.text,
+  },
+  closeButton: {
+    width: sizes.touchTarget,
+    height: sizes.touchTarget,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.track,
+  },
+  sheetBody: {
+    ...type.body,
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 24,
+    color: colors.textSecondary,
   },
   composeInput: {
+    ...type.input,
     flex: 1,
-    backgroundColor: '#F7F7F8',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 15,
-    color: '#1A1A1A',
-    marginVertical: 16,
+    padding: spacing.lg,
+    borderRadius: radii.button,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    color: colors.text,
   },
   shareRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   shareButton: {
     flex: 1,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
+    minHeight: sizes.secondaryButton,
+    borderRadius: radii.row,
+    paddingHorizontal: spacing.md,
   },
-  shareButtonText: {
-    color: COLORS.primary,
-    fontSize: 15,
-    fontWeight: '600',
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  copyButtonDone: {
+    borderWidth: 1.5,
+    borderColor: colors.success.border,
+    backgroundColor: colors.success.background,
+  },
+  copyText: {
+    ...type.buttonSecondary,
+    color: colors.actionText,
+  },
+  copyTextDone: {
+    color: colors.success.text,
   },
 });

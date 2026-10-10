@@ -1,11 +1,18 @@
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { BackButton } from '@/components/BackButton';
+import { GlassCard } from '@/components/GlassCard';
+import { HeroCard } from '@/components/HeroCard';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { SecondaryButton } from '@/components/SecondaryButton';
 import { buildPublicQuizUrl } from '@/features/quiz-publishing/publicQuizUrl';
 import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
-import { COLORS } from '@/theme/colors';
+import { colors, gradients, radii, shadows, sizes, spacing, type } from '@/theme';
 
 // The teacher's view of a published quiz: confirmation that it is live, the
 // public URL to give to students, and the share / copy actions (Milestones 7
@@ -23,14 +30,12 @@ export default function QuizPublishedScreen() {
   if (!slug) {
     return (
       <Screen>
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-          <Text style={styles.title}>Devoir introuvable</Text>
-          <Text style={styles.body}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <Text style={styles.notFoundTitle}>Devoir introuvable</Text>
+          <Text style={styles.notFoundBody}>
             Ce lien n&apos;est plus disponible. Retournez à l&apos;accueil et réessayez.
           </Text>
-          <Pressable style={styles.button} onPress={() => router.replace('/')} accessibilityRole="button">
-            <Text style={styles.buttonText}>Retour à l&apos;accueil</Text>
-          </Pressable>
+          <PrimaryButton label="Retour à l’accueil" onPress={() => router.replace('/')} />
         </ScrollView>
       </Screen>
     );
@@ -38,155 +43,231 @@ export default function QuizPublishedScreen() {
 
   const url = buildPublicQuizUrl(slug);
 
+  async function handleCopy() {
+    const ok = await copyText(url);
+    if (ok) {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    }
+  }
+
   return (
     <Screen>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {canGoBack && (
-        <Pressable onPress={() => router.back()} accessibilityRole="button">
-          <Text style={styles.back}>‹ Retour</Text>
-        </Pressable>
-      )}
-      <Text style={styles.badge}>Devoir publié</Text>
-      <Text style={styles.title}>{title || 'Le devoir'} est prêt</Text>
-      <Text style={styles.body}>
-        Donnez ce lien à vos élèves pour qu&apos;ils fassent le devoir, sans compte ni
-        installation.
-      </Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        {canGoBack && <BackButton onPress={() => router.back()} />}
 
-      <View style={styles.linkBox}>
-        <Text style={styles.linkText} selectable accessibilityLabel="Lien du devoir à partager">
-          {url}
-        </Text>
-      </View>
+        <HeroCard>
+          <View style={styles.badge}>
+            <Ionicons name="checkmark" size={14} color={colors.textOnBrand} />
+            <Text style={styles.badgeText}>Devoir publié</Text>
+          </View>
+          <Text style={styles.heroTitle} accessibilityRole="header">
+            {title || 'Le devoir'} est prêt
+          </Text>
+          <Text style={styles.heroBody}>
+            Donnez ce lien à vos élèves : ils font le devoir sans compte ni installation.
+          </Text>
+        </HeroCard>
 
-      <View style={styles.shareRow}>
-        <Pressable
-          style={styles.shareButton}
-          onPress={() => shareText(url)}
-          accessibilityRole="button"
-        >
-          <Text style={styles.shareButtonText}>Partager</Text>
-        </Pressable>
-        <Pressable
-          style={styles.shareButton}
-          onPress={async () => {
-            const ok = await copyText(url);
-            if (ok) {
-              setCopyFeedback(true);
-              setTimeout(() => setCopyFeedback(false), 2000);
+        <View style={styles.linkBox}>
+          <Ionicons name="link-outline" size={18} color={colors.actionText} />
+          <Text
+            style={styles.linkText}
+            selectable
+            numberOfLines={1}
+            accessibilityLabel="Lien du devoir à partager"
+          >
+            {url}
+          </Text>
+        </View>
+
+        <View style={styles.shareRow}>
+          <PrimaryButton
+            label="Partager"
+            icon="share-outline"
+            onPress={() => shareText(url)}
+            style={styles.shareButton}
+          />
+          {copyFeedback ? (
+            // Same button, confirmed state: green with a check, never color
+            // alone — the label also changes (CLAUDE.md §37).
+            <Pressable
+              onPress={handleCopy}
+              accessibilityRole="button"
+              accessibilityLabel="Lien copié"
+              style={[styles.shareButton, styles.copiedButton]}
+            >
+              <Ionicons name="checkmark" size={18} color={colors.success.text} />
+              <Text style={styles.copiedText}>Lien copié</Text>
+            </Pressable>
+          ) : (
+            <SecondaryButton
+              label="Copier le lien"
+              icon="copy-outline"
+              onPress={handleCopy}
+              style={styles.shareButton}
+            />
+          )}
+        </View>
+
+        {quizId && (
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/quiz-results', params: { quizId, title: title || '' } })
             }
-          }}
-          accessibilityRole="button"
-        >
-          <Text style={styles.shareButtonText}>{copyFeedback ? 'Lien copié ✓' : 'Copier le lien'}</Text>
-        </Pressable>
-      </View>
+            accessibilityRole="button"
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <GlassCard style={styles.resultsRow}>
+              <LinearGradient {...gradients.iconTile} style={styles.resultsIcon}>
+                <Ionicons name="people-outline" size={22} color={colors.actionText} />
+              </LinearGradient>
+              <View style={styles.resultsText}>
+                <Text style={styles.resultsTitle}>Voir les réponses des élèves</Text>
+                <Text style={styles.resultsMeta}>Qui a répondu et avec quel score</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </GlassCard>
+          </Pressable>
+        )}
 
-      {quizId && (
         <Pressable
-          style={styles.buttonSecondary}
-          onPress={() =>
-            router.push({ pathname: '/quiz-results', params: { quizId, title: title || '' } })
-          }
+          onPress={() => router.replace('/')}
           accessibilityRole="button"
+          style={({ pressed }) => [styles.homeLink, pressed && styles.pressed]}
         >
-          <Text style={styles.buttonSecondaryText}>Voir les réponses des élèves</Text>
+          <Text style={styles.homeLinkText}>Retour à l’accueil</Text>
         </Pressable>
-      )}
-
-      <Pressable style={styles.button} onPress={() => router.replace('/')} accessibilityRole="button">
-        <Text style={styles.buttonText}>Retour à l&apos;accueil</Text>
-      </Pressable>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   content: {
-    padding: 24,
-    paddingBottom: 48,
-    gap: 4,
-    flexGrow: 1,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    paddingBottom: 40,
+    gap: spacing.lg,
   },
-  back: {
-    color: COLORS.primary,
-    fontSize: 16,
-    marginBottom: 12,
+  pressed: {
+    opacity: 0.7,
+  },
+  notFoundTitle: {
+    ...type.title,
+    color: colors.text,
+  },
+  notFoundBody: {
+    ...type.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   badge: {
-    color: '#1F6E40',
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 8,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 30,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.onBrandBadge,
+    borderWidth: 1,
+    borderColor: colors.onBrandBadgeBorder,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 12,
+  badgeText: {
+    ...type.metaStrong,
+    color: colors.textOnBrand,
   },
-  body: {
+  heroTitle: {
+    ...type.heroTitle,
+    color: colors.textOnBrand,
+    marginTop: 14,
+    marginBottom: spacing.sm,
+  },
+  heroBody: {
+    ...type.body,
     fontSize: 15,
-    color: '#333333',
-    marginBottom: 20,
+    lineHeight: 22,
+    color: colors.textOnBrandSoft,
   },
   linkBox: {
-    backgroundColor: '#F7F7F8',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.row,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   linkText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.primary,
+    ...type.bodyStrong,
+    flex: 1,
+    minWidth: 0,
+    color: colors.info.text,
   },
   shareRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
   },
   shareButton: {
     flex: 1,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
+    minHeight: sizes.primaryButton,
+    paddingHorizontal: spacing.md,
+  },
+  copiedButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderRadius: radii.button,
+    borderWidth: 1.5,
+    borderColor: colors.success.border,
+    backgroundColor: colors.success.background,
   },
-  shareButtonText: {
-    color: COLORS.primary,
-    fontSize: 15,
-    fontWeight: '600',
+  copiedText: {
+    ...type.buttonSecondary,
+    color: colors.success.text,
   },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
+  resultsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 'auto',
+    gap: 14,
+    minHeight: 72,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.chip,
+    boxShadow: shadows.card,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonSecondary: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
+  resultsIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
-    marginTop: 12,
+    justifyContent: 'center',
   },
-  buttonSecondaryText: {
-    color: COLORS.primary,
-    fontSize: 16,
-    fontWeight: '600',
+  resultsText: {
+    flex: 1,
+    gap: 2,
+  },
+  resultsTitle: {
+    ...type.bodyEmphasis,
+    color: colors.text,
+  },
+  resultsMeta: {
+    ...type.meta,
+    color: colors.textSecondary,
+  },
+  homeLink: {
+    alignSelf: 'center',
+    minHeight: sizes.compactButton,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  homeLinkText: {
+    ...type.buttonSecondary,
+    color: colors.actionText,
   },
 });

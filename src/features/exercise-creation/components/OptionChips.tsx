@@ -1,6 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { COLORS } from '@/theme/colors';
+import { colors, gradients, radii, sizes, type } from '@/theme';
 
 // Generic single-select chip row, reused for every choice in the create-
 // exercise form (grade, subject, exercise type, number of questions).
@@ -28,12 +29,13 @@ export function OptionChips<T extends string | number>({
         return (
           <Pressable
             key={option.value}
-            style={[styles.chip, isSelected && styles.chipSelected]}
+            style={[styles.chip, !isSelected && styles.chipIdle]}
             onPress={() => onSelect(option.value)}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
             accessibilityLabel={`${accessibilityLabelPrefix} ${option.label}`}
           >
+            {isSelected && <LinearGradient {...gradients.selected} style={styles.fill} />}
             <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
               {option.label}
             </Text>
@@ -51,24 +53,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    borderWidth: 1,
-    borderColor: '#D0D5DD',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    minHeight: sizes.chip,
+    paddingHorizontal: 18,
+    borderRadius: radii.chip,
+    justifyContent: 'center',
   },
-  chipSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryLight,
+  chipIdle: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  fill: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: radii.chip,
   },
   chipText: {
+    ...type.label,
     fontSize: 15,
-    color: '#333333',
-    fontWeight: '500',
+    color: colors.text,
   },
   chipTextSelected: {
-    color: COLORS.primary,
-    fontWeight: '700',
+    fontFamily: type.bodyStrong.fontFamily,
+    color: colors.textOnBrand,
   },
 });

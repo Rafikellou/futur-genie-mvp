@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Pop-ups de l'application</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}a{color:#B8205F}a:hover{color:#8E1648}</style>
+</helmet>
+<div style="position: relative; width: 1380px; height: 1060px; overflow: hidden; box-sizing: border-box; padding: 44px 50px; background: #F5F6FD; font-family: 'DM Sans', system-ui, sans-serif; color: #141A46">
+  <div aria-hidden="true" style="position: absolute; width: 520px; height: 520px; left: -160px; top: -200px; border-radius: 50%; background: #5B6CFF; opacity: 0.3; filter: blur(100px)"></div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 26px">
+    <div style="display: flex; gap: 24px; align-items: flex-start; justify-content: space-between">
+      <div>
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -0.02em">Les 8 alertes de l’app</h1>
+        <p style="margin: 6px 0 0 0; max-width: 760px; font-size: 16px; line-height: 1.45; color: #555B80">On garde les alertes natives d’iOS et d’Android (Alert.alert) : pas de design maison. Le système gère l’apparence ; ce tableau fixe seulement les textes, l’ordre des boutons et quel bouton est destructif.</p>
+      </div>
+      <div style="flex: none; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,0.75); border: 1px solid rgba(255,255,255,0.95); font-size: 14px">
+        <span style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #007AFF"></span>Bouton standard</span>
+        <span style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #FF3B30"></span>Bouton destructif (style « destructive »)</span>
+        <span style="display: flex; align-items: center; gap: 8px"><span style="font-weight: 700">Gras</span>= action par défaut</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px">
+      <sc-for list="{{dialogs}}" as="d" hint-placeholder-count="8">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #555B80">{{d.where}}</span>
+          <div style="height: 390px; border-radius: 30px; background: rgba(20,26,70,0.38); display: flex; align-items: center; justify-content: center">
+            <section role="alertdialog" aria-label="{{d.title}}" style="width: 270px; border-radius: 14px; background: rgba(242,242,247,0.97); overflow: hidden; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; text-align: center; color: #000000">
+              <div style="padding: 18px 16px 16px 16px">
+                <h2 style="margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3">{{d.title}}</h2>
+                <p style="margin: 4px 0 0 0; font-size: 13px; line-height: 1.35">{{d.body}}</p>
+              </div>
+              <sc-for list="{{d.actions}}" as="a" hint-placeholder-count="2">
+                <div style="height: 44px; border-top: 1px solid rgba(60,60,67,0.29); display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: {{a.weight}}; color: {{a.color}}">{{a.label}}</div>
+              </sc-for>
+            </section>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1380,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const btn = (label, bold) => ({ label, color: '#007AFF', weight: bold ? 600 : 400 });
+    const destructive = (label) => ({ label, color: '#FF3B30', weight: 600 });
+    return {
+      dialogs: [
+        { where: 'Photo · image inutilisable', title: 'Photo indisponible', body: 'Nous n’avons pas pu utiliser cette photo. Réessayez avec une autre image.', actions: [btn('OK', true)] },
+        { where: 'Photo · création échouée', title: 'Devoir non créé', body: 'Nous n’arrivons pas à lire correctement cette photo. Reprenez-la avec un bon éclairage, sans reflet, en cadrant toute la leçon.', actions: [btn('Reprendre la photo', true), btn('Réessayer')] },
+        { where: 'Photo · accès refusé', title: 'Autorisation nécessaire', body: 'L’accès à l’appareil photo est désactivé pour Futur Génie. Autorisez-le dans les réglages de votre appareil pour continuer.', actions: [btn('Ouvrir les réglages', true), btn('Annuler')] },
+        { where: 'Relecture · ajouter', title: 'Ajouter une question', body: 'Choisissez le type de question.', actions: [btn('Choix multiple'), btn('Vrai ou Faux'), btn('Texte à trous'), btn('Annuler', true)] },
+        { where: 'Relecture · supprimer', title: 'Supprimer cette question ?', body: 'Cette action est irréversible.', actions: [destructive('Supprimer'), btn('Annuler')] },
+        { where: 'Relecture · publier', title: 'Devoir incomplet', body: 'La question 2 est vide.', actions: [btn('OK', true)] },
+        { where: 'Suggestions · envoi', title: 'Message non envoyé', body: 'Nous n’avons pas pu envoyer votre message. Vérifiez votre connexion et réessayez.', actions: [btn('Réessayer', true)] },
+        { where: 'Profil · suppression', title: 'Supprimer votre compte ?', body: 'Tous vos devoirs et les réponses de vos élèves seront définitivement supprimés. Cette action est irréversible.', actions: [destructive('Supprimer mon compte'), btn('Annuler')] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

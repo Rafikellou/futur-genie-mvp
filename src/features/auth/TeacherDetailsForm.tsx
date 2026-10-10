@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { Banner } from '@/components/Banner';
+import { PrimaryButton } from '@/components/PrimaryButton';
+import { TextField } from '@/components/TextField';
 import { OptionChips } from '@/features/exercise-creation/components/OptionChips';
-import { COLORS } from '@/theme/colors';
+import { colors, spacing, type } from '@/theme';
 import { GRADES, Grade } from '@shared/domain/grade';
 import { TEACHER_TITLES, TeacherTitle } from '@shared/domain/title';
 import type { TeacherDetails } from '@shared/domain/profile';
@@ -13,12 +16,20 @@ type Props = {
   onSubmit: (details: TeacherDetails) => Promise<void>;
   // Shown briefly under the button after a successful save (Profil tab).
   successMessage?: string;
+  // First and last name side by side (Profil) instead of stacked (onboarding).
+  compactNames?: boolean;
 };
 
 // Shared by the mandatory onboarding screen and the Profil tab: the same six
 // fields, the same validation. Kept as one component so the two entry points
 // can never drift apart (CLAUDE.md §46, §57).
-export function TeacherDetailsForm({ initial, submitLabel, onSubmit, successMessage }: Props) {
+export function TeacherDetailsForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  successMessage,
+  compactNames = false,
+}: Props) {
   const [title, setTitle] = useState<TeacherTitle | null>(initial?.title ?? null);
   const [firstName, setFirstName] = useState(initial?.firstName ?? '');
   const [lastName, setLastName] = useState(initial?.lastName ?? '');
@@ -81,63 +92,51 @@ export function TeacherDetailsForm({ initial, submitLabel, onSubmit, successMess
         />
       </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Prénom</Text>
-        <TextInput
-          style={styles.input}
+      <View style={compactNames ? styles.nameRow : styles.nameColumn}>
+        <TextField
+          label="Prénom"
           value={firstName}
           onChangeText={(value) => {
             setFirstName(value);
             markDirty();
           }}
           placeholder="Camille"
-          accessibilityLabel="Prénom"
+          style={compactNames ? styles.nameField : undefined}
         />
-      </View>
-
-      <View style={styles.field}>
-        <Text style={styles.label}>Nom</Text>
-        <TextInput
-          style={styles.input}
+        <TextField
+          label="Nom"
           value={lastName}
           onChangeText={(value) => {
             setLastName(value);
             markDirty();
           }}
           placeholder="Dupont"
-          accessibilityLabel="Nom"
+          style={compactNames ? styles.nameField : undefined}
         />
       </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Nom de l&apos;école</Text>
-        <TextInput
-          style={styles.input}
-          value={schoolName}
-          onChangeText={(value) => {
-            setSchoolName(value);
-            markDirty();
-          }}
-          placeholder="École élémentaire Jean Jaurès"
-          accessibilityLabel="Nom de l'école"
-        />
-      </View>
+      <TextField
+        label="Nom de l’école"
+        value={schoolName}
+        onChangeText={(value) => {
+          setSchoolName(value);
+          markDirty();
+        }}
+        placeholder="École élémentaire Jean Jaurès"
+      />
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Code postal de l&apos;école</Text>
-        <TextInput
-          style={styles.input}
-          value={postalCode}
-          onChangeText={(value) => {
-            setPostalCode(value.replace(/[^0-9]/g, '').slice(0, 5));
-            markDirty();
-          }}
-          placeholder="75011"
-          keyboardType="number-pad"
-          maxLength={5}
-          accessibilityLabel="Code postal de l'école"
-        />
-      </View>
+      <TextField
+        label="Code postal de l’école"
+        value={postalCode}
+        onChangeText={(value) => {
+          setPostalCode(value.replace(/[^0-9]/g, '').slice(0, 5));
+          markDirty();
+        }}
+        placeholder="75011"
+        keyboardType="number-pad"
+        maxLength={5}
+        inputStyle={styles.postalCode}
+      />
 
       <View style={styles.field}>
         <Text style={styles.label}>Niveau de votre classe</Text>
@@ -152,73 +151,45 @@ export function TeacherDetailsForm({ initial, submitLabel, onSubmit, successMess
         />
       </View>
 
-      {error ? (
-        <Text style={styles.error} accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : null}
-      {saved && successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
+      {error ? <Banner tone="error" messages={error} /> : null}
+      {saved && successMessage ? <Banner tone="success" messages={successMessage} /> : null}
 
-      <Pressable
-        style={[styles.button, !canSubmit && styles.buttonDisabled]}
+      <PrimaryButton
+        label={submitLabel}
         onPress={handleSubmit}
-        disabled={!canSubmit}
-        accessibilityRole="button"
-      >
-        {isSaving ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.buttonText}>{submitLabel}</Text>
-        )}
-      </Pressable>
+        disabled={!canSubmit && !isSaving}
+        loading={isSaving}
+        style={styles.submit}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   form: {
-    gap: 4,
+    gap: 18,
   },
   field: {
-    gap: 8,
-    marginBottom: 20,
+    gap: 10,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
+    ...type.labelStrong,
+    color: colors.text,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D0D5DD',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  nameColumn: {
+    gap: 18,
   },
-  error: {
-    color: '#B42318',
-    fontSize: 14,
-    marginBottom: 8,
+  nameRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  success: {
-    color: '#067647',
-    fontSize: 14,
-    marginBottom: 8,
+  nameField: {
+    flex: 1,
   },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
+  postalCode: {
+    width: 140,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  submit: {
+    marginTop: spacing.xs,
   },
 });

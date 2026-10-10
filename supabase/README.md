@@ -70,15 +70,30 @@ Deploy the function:
 npx supabase functions deploy notify-feedback
 ```
 
-Then, in the Supabase dashboard (this step has no CLI/migration equivalent —
-Database Webhooks live outside the SQL schema, same reasoning as why
-`OPENAI_API_KEY` above is a secret and not a migration): **Database →
-Webhooks → Create a new hook**
+The trigger that calls this function on every `feedback` insert lives in
+`20260914120000_notify_feedback_trigger.sql` (via `pg_net`, not the Studio
+"Database Webhooks" UI — that feature errored with `schema
+"supabase_functions" does not exist` on this project, a platform-side
+provisioning gap, so the trigger is defined directly in SQL instead, fully
+covered by `db push`). It still needs the same `FEEDBACK_WEBHOOK_SECRET` value, stored in Supabase
+Vault rather than a migration literal — run this yourself in the Supabase
+SQL editor (never commit a real secret to a migration). `alter database ...
+set` doesn't work on hosted Supabase (`permission denied to set parameter`
+— the platform doesn't allow instance-level custom parameters), Vault is
+the supported alternative for a secret a function needs to read:
 
-- Table: `feedback`, event: `Insert`
-- Type: `Supabase Edge Functions` → `notify-feedback`
-- HTTP headers: add `x-webhook-secret` = the exact same random string you set
-  as `FEEDBACK_WEBHOOK_SECRET` above
+```sql
+select vault.create_secret('<same random string as FEEDBACK_WEBHOOK_SECRET>', 'feedback_webhook_secret');
+```
+
+If that errors with something like `schema "vault" does not exist`, enable
+the `supabase_vault` extension first (Database → Extensions), then retry.
+
+Then:
+
+```bash
+npx supabase db push
+```
 
 Without a verified sending domain in Resend, `onboarding@resend.dev` (the
 default `from` address) can only deliver to the email address your Resend

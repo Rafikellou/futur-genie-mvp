@@ -1,9 +1,11 @@
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Screen } from '@/components/Screen';
+import { GlassCard } from '@/components/GlassCard';
 import { Logo } from '@/components/Logo';
+import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { TeacherDetailsForm } from '@/features/auth/TeacherDetailsForm';
+import { colors, shadows, spacing, type } from '@/theme';
 
 // Mandatory one-time screen shown right after the first sign-in. No back
 // button and no skip: (app)/_layout redirects here until every field is
@@ -13,57 +15,65 @@ export default function OnboardingScreen() {
   const { profile, updateTeacherDetails } = useAuth();
 
   return (
-    <Screen style={styles.screen}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+    <Screen>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Logo size={40} style={styles.logo} />
-        <Text style={styles.title}>Bienvenue sur Futur Génie</Text>
-        <Text style={styles.subtitle}>
-          Encore quelques informations et vous pourrez créer votre premier devoir.
-        </Text>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Logo size={56} showWordmark={false} />
+          <View>
+            <Text style={styles.title} accessibilityRole="header">
+              Bienvenue sur{'\n'}Futur Génie
+            </Text>
+            <Text style={styles.subtitle}>
+              Encore quelques informations et vous pourrez créer votre premier devoir.
+            </Text>
+          </View>
 
-        <TeacherDetailsForm
-          initial={{
-            title: profile?.title ?? undefined,
-            firstName: profile?.firstName ?? undefined,
-            lastName: profile?.lastName ?? undefined,
-            schoolName: profile?.schoolName ?? undefined,
-            schoolPostalCode: profile?.schoolPostalCode ?? undefined,
-            classGrade: profile?.classGrade ?? undefined,
-          }}
-          submitLabel="Commencer"
-          onSubmit={updateTeacherDetails}
-        />
-      </ScrollView>
+          <GlassCard style={styles.formCard}>
+            <TeacherDetailsForm
+              initial={{
+                title: profile?.title ?? undefined,
+                firstName: profile?.firstName ?? undefined,
+                lastName: profile?.lastName ?? undefined,
+                schoolName: profile?.schoolName ?? undefined,
+                schoolPostalCode: profile?.schoolPostalCode ?? undefined,
+                classGrade: profile?.classGrade ?? undefined,
+              }}
+              submitLabel="Commencer"
+              onSubmit={updateTeacherDetails}
+            />
+          </GlassCard>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: '#FFFFFF',
-  },
-  container: {
+  flex: {
     flex: 1,
   },
   content: {
-    padding: 24,
-    paddingBottom: 48,
-  },
-  logo: {
-    marginBottom: 16,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.md,
+    paddingBottom: 40,
+    gap: spacing.xl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
+    ...type.title,
+    color: colors.text,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#555555',
-    marginBottom: 24,
+    ...type.body,
+    lineHeight: 23,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  formCard: {
+    padding: 22,
+    borderRadius: 28,
+    boxShadow: shadows.form,
   },
 });

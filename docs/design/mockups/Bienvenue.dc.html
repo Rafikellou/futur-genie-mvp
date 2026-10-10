@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Bienvenue</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}a{color:#B8205F}a:hover{color:#8E1648}</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1180px; overflow: hidden; background: #F5F6FD; font-family: 'DM Sans', system-ui, sans-serif; color: #141A46">
+  <div aria-hidden="true" style="position: absolute; width: 380px; height: 380px; left: -150px; top: -150px; border-radius: 50%; background: #5B6CFF; opacity: 0.38; filter: blur(80px)"></div>
+  <div aria-hidden="true" style="position: absolute; width: 300px; height: 300px; right: -160px; top: 420px; border-radius: 50%; background: #F0458A; opacity: 0.28; filter: blur(90px)"></div>
+  <div aria-hidden="true" style="position: absolute; width: 280px; height: 280px; left: -80px; bottom: -80px; border-radius: 50%; background: #FFA05C; opacity: 0.28; filter: blur(90px)"></div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 20px; padding: 64px 22px 40px 22px">
+    <img src="/_blob/f471c8dad58ca739e9bd4d7c8ddbf38a" alt="" style="width: 56px; height: 56px; object-fit: contain">
+    <div>
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 30px; letter-spacing: -0.02em; line-height: 1.1">Bienvenue sur<br>Futur Génie</h1>
+      <p style="margin: 8px 0 0 0; font-size: 16px; line-height: 1.45; color: #555B80">Encore quelques informations et vous pourrez créer votre premier devoir.</p>
+    </div>
+
+    <form style="display: flex; flex-direction: column; gap: 18px; padding: 22px; border-radius: 28px; background: rgba(255,255,255,0.72); border: 1px solid rgba(255,255,255,0.95); box-shadow: 0 16px 40px rgba(20,26,70,0.08)">
+      <fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 10px">
+        <legend style="padding: 0; margin-bottom: 10px; font-size: 14px; font-weight: 600">Civilité</legend>
+        <div style="display: flex; gap: 8px">
+          <button type="button" aria-pressed="true" style="height: 44px; padding: 0 22px; border-radius: 22px; border: none; background: linear-gradient(90deg, #3B4CF0, #7B2FE0); color: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600">Mme</button>
+          <button type="button" aria-pressed="false" style="height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid #DCE0F2; background: #FFFFFF; color: #141A46; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500">M.</button>
+        </div>
+      </fieldset>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="fn" style="font-size: 14px; font-weight: 600">Prénom</label>
+        <input id="fn" value="Camille" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1px solid #DCE0F2; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="ln" style="font-size: 14px; font-weight: 600">Nom</label>
+        <input id="ln" value="Dupont" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1px solid #DCE0F2; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="sc" style="font-size: 14px; font-weight: 600">Nom de l’école</label>
+        <input id="sc" placeholder="École élémentaire Jean Jaurès" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1.5px solid #7B2FE0; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46; box-shadow: 0 0 0 4px rgba(123,47,224,0.12)">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="cp" style="font-size: 14px; font-weight: 600">Code postal de l’école</label>
+        <input id="cp" inputmode="numeric" placeholder="75011" style="width: 140px; height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 16px; border: 1px solid #DCE0F2; background: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #141A46">
+      </div>
+      <fieldset style="margin: 0; padding: 0; border: none">
+        <legend style="padding: 0; margin-bottom: 10px; font-size: 14px; font-weight: 600">Niveau de votre classe</legend>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button type="button" style="height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #DCE0F2; background: #FFFFFF; color: #141A46; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500">CP</button>
+          <button type="button" style="height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #DCE0F2; background: #FFFFFF; color: #141A46; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500">CE1</button>
+          <button type="button" aria-pressed="true" style="height: 44px; padding: 0 18px; border-radius: 22px; border: none; background: linear-gradient(90deg, #3B4CF0, #7B2FE0); color: #FFFFFF; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600">CE2</button>
+          <button type="button" style="height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #DCE0F2; background: #FFFFFF; color: #141A46; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500">CM1</button>
+          <button type="button" style="height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #DCE0F2; background: #FFFFFF; color: #141A46; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500">CM2</button>
+        </div>
+      </fieldset>
+      <button type="button" disabled style="margin-top: 4px; height: 56px; border: none; border-radius: 20px; background: linear-gradient(90deg, #D9286E 0%, #8B2FE0 100%); opacity: 0.45; color: #FFFFFF; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 17px">Commencer</button>
+    </form>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

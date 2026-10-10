@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,16 +13,29 @@ import {
   View,
 } from 'react-native';
 
+import { Banner } from '@/components/Banner';
+import { GlassCard } from '@/components/GlassCard';
+import { HeroCard } from '@/components/HeroCard';
 import { Screen } from '@/components/Screen';
+import { useTabBarSpace } from '@/components/TabBar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { TeacherDetailsForm } from '@/features/auth/TeacherDetailsForm';
-import { COLORS } from '@/theme/colors';
+import { colors, fonts, radii, shadows, sizes, spacing, type } from '@/theme';
 
 export default function ProfileScreen() {
   const { session, profile, updateTeacherDetails, signOut, deleteAccount } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tabBarSpace = useTabBarSpace();
+
+  const fullName = [profile?.title, profile?.firstName, profile?.lastName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ');
+  const initials = `${profile?.firstName?.trim().charAt(0) ?? ''}${
+    profile?.lastName?.trim().charAt(0) ?? ''
+  }`.toUpperCase();
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -60,139 +76,211 @@ export default function ProfileScreen() {
   }
 
   return (
-    <Screen style={styles.screen}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+    <Screen>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.title}>Mon profil</Text>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Adresse e-mail</Text>
-          <Text style={styles.readOnlyValue}>{session?.user.email}</Text>
-        </View>
-
-        <TeacherDetailsForm
-          initial={{
-            title: profile?.title ?? undefined,
-            firstName: profile?.firstName ?? undefined,
-            lastName: profile?.lastName ?? undefined,
-            schoolName: profile?.schoolName ?? undefined,
-            schoolPostalCode: profile?.schoolPostalCode ?? undefined,
-            classGrade: profile?.classGrade ?? undefined,
-          }}
-          submitLabel="Enregistrer"
-          successMessage="Profil mis à jour."
-          onSubmit={updateTeacherDetails}
-        />
-
-        {error ? (
-          <Text style={styles.error} accessibilityRole="alert">
-            {error}
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.title} accessibilityRole="header">
+            Mon profil
           </Text>
-        ) : null}
 
-        <Pressable
-          style={[styles.button, styles.signOutButton]}
-          onPress={handleSignOut}
-          disabled={isSigningOut}
-          accessibilityRole="button"
-        >
-          {isSigningOut ? (
-            <ActivityIndicator color="#B42318" />
-          ) : (
-            <Text style={styles.signOutButtonText}>Se déconnecter</Text>
-          )}
-        </Pressable>
+          <HeroCard contentStyle={styles.identity}>
+            <View style={styles.avatar}>
+              {initials ? (
+                <Text style={styles.avatarText}>{initials}</Text>
+              ) : (
+                <Ionicons name="person-outline" size={24} color={colors.textOnBrand} />
+              )}
+            </View>
+            <View style={styles.identityText}>
+              {fullName ? <Text style={styles.name}>{fullName}</Text> : null}
+              <Text style={styles.email} accessibilityLabel={`Adresse e-mail : ${session?.user.email ?? ''}`}>
+                {session?.user.email}
+              </Text>
+            </View>
+          </HeroCard>
 
-        <Pressable
-          style={styles.deleteAccountButton}
-          onPress={handleDeleteAccount}
-          disabled={isDeleting}
-          accessibilityRole="button"
-        >
-          {isDeleting ? (
-            <ActivityIndicator color="#B42318" />
-          ) : (
-            <Text style={styles.deleteAccountButtonText}>Supprimer mon compte</Text>
-          )}
-        </Pressable>
+          <GlassCard style={styles.formCard}>
+            <Text style={styles.sectionTitle} accessibilityRole="header">
+              Mes informations
+            </Text>
+            <TeacherDetailsForm
+              initial={{
+                title: profile?.title ?? undefined,
+                firstName: profile?.firstName ?? undefined,
+                lastName: profile?.lastName ?? undefined,
+                schoolName: profile?.schoolName ?? undefined,
+                schoolPostalCode: profile?.schoolPostalCode ?? undefined,
+                classGrade: profile?.classGrade ?? undefined,
+              }}
+              submitLabel="Enregistrer"
+              successMessage="Profil mis à jour."
+              onSubmit={updateTeacherDetails}
+              compactNames
+            />
+          </GlassCard>
 
-        <Pressable onPress={() => router.push('/privacy')} accessibilityRole="link">
-          <Text style={styles.privacyLink}>Politique de confidentialité</Text>
-        </Pressable>
-      </ScrollView>
+          {error ? <Banner tone="error" messages={error} /> : null}
+
+          <GlassCard style={styles.actions}>
+            <ActionRow
+              icon="shield-checkmark-outline"
+              label="Politique de confidentialité"
+              onPress={() => router.push('/privacy')}
+              role="link"
+              showChevron
+            />
+            <ActionRow
+              icon="log-out-outline"
+              label="Se déconnecter"
+              onPress={handleSignOut}
+              loading={isSigningOut}
+            />
+            <ActionRow
+              icon="trash-outline"
+              label="Supprimer mon compte"
+              onPress={handleDeleteAccount}
+              loading={isDeleting}
+              destructive
+              last
+            />
+          </GlassCard>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
+function ActionRow({
+  icon,
+  label,
+  onPress,
+  role = 'button',
+  loading = false,
+  destructive = false,
+  showChevron = false,
+  last = false,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+  role?: 'button' | 'link';
+  loading?: boolean;
+  destructive?: boolean;
+  showChevron?: boolean;
+  last?: boolean;
+}) {
+  const tint = destructive ? colors.danger.text : colors.actionText;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={loading}
+      accessibilityRole={role}
+      accessibilityState={{ busy: loading }}
+      style={({ pressed }) => [styles.actionRow, !last && styles.actionDivider, pressed && styles.pressed]}
+    >
+      <Ionicons name={icon} size={20} color={tint} />
+      <Text style={[styles.actionLabel, destructive && styles.actionLabelDestructive]}>{label}</Text>
+      {loading ? (
+        <ActivityIndicator color={tint} />
+      ) : showChevron ? (
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      ) : null}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: '#FFFFFF',
-  },
-  container: {
+  flex: {
     flex: 1,
   },
   content: {
-    padding: 24,
-    paddingBottom: 48,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    gap: 18,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
+    ...type.title,
+    color: colors.text,
   },
-  field: {
-    gap: 6,
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
-  },
-  readOnlyValue: {
-    fontSize: 16,
-    color: '#555555',
-    paddingVertical: 12,
-  },
-  error: {
-    color: '#B42318',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  button: {
-    borderRadius: 10,
-    paddingVertical: 14,
+  identity: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    gap: 14,
+    padding: 18,
+    borderRadius: 26,
   },
-  signOutButton: {
-    backgroundColor: '#FFFFFF',
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.onBrandBadge,
     borderWidth: 1,
-    borderColor: '#B42318',
-    marginTop: 24,
+    borderColor: colors.onBrandAvatarBorder,
   },
-  signOutButtonText: {
-    color: '#B42318',
-    fontSize: 16,
-    fontWeight: '600',
+  avatarText: {
+    fontFamily: fonts.heading,
+    fontSize: 20,
+    color: colors.textOnBrand,
   },
-  deleteAccountButton: {
+  identityText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  name: {
+    fontFamily: fonts.heading,
+    fontSize: 20,
+    color: colors.textOnBrand,
+  },
+  email: {
+    ...type.label,
+    fontFamily: fonts.body,
+    color: colors.textOnBrandSoft,
+  },
+  formCard: {
+    padding: spacing.xl,
+    gap: 18,
+    borderRadius: 26,
+    boxShadow: shadows.panel,
+  },
+  sectionTitle: {
+    ...type.sectionTitle,
+    fontSize: 17,
+    color: colors.text,
+  },
+  actions: {
+    borderRadius: radii.chip,
+    overflow: 'hidden',
+  },
+  actionRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingVertical: 10,
+    gap: spacing.md,
+    minHeight: sizes.secondaryButton,
+    paddingHorizontal: spacing.lg,
   },
-  deleteAccountButtonText: {
-    color: '#98A2B3',
-    fontSize: 14,
-    textDecorationLine: 'underline',
+  actionDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.trackSoft,
   },
-  privacyLink: {
-    color: COLORS.primary,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 24,
+  actionLabel: {
+    ...type.label,
+    fontSize: 15,
+    flex: 1,
+    color: colors.text,
+  },
+  actionLabelDestructive: {
+    fontFamily: fonts.bodySemiBold,
+    color: colors.danger.text,
   },
 });

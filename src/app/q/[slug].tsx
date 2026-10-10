@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -11,22 +12,32 @@ import {
   View,
 } from 'react-native';
 
-import { Screen } from '@/components/Screen';
+import { HeroCard } from '@/components/HeroCard';
 import { Logo } from '@/components/Logo';
+import { PrimaryButton } from '@/components/PrimaryButton';
+import { Screen } from '@/components/Screen';
+import { StickyFooter, useStickyFooterSpace } from '@/components/StickyFooter';
 
 // Deliberately outside the (app)/(auth) route groups (see src/app/_layout.tsx):
 // neither Stack.Protected guard covers this file, so it renders without a
 // teacher session — this is the student-facing public route (CLAUDE.md §8).
 import { supabase } from '@shared/supabase/client';
-import { BLANK_MARKER, PublicQuizDataSchema, type PublicQuizData } from '@shared/domain/quiz';
+import { TEACHER_TITLES } from '@shared/domain/title';
+import {
+  BLANK_MARKER,
+  PublicQuizDataSchema,
+  type PublicQuestion,
+  type PublicQuizData,
+} from '@shared/domain/quiz';
 import {
   areAllAnswered,
   createEmptyAnswers,
   gradeQuiz,
   type AnswerMap,
+  type StudentAnswer,
 } from '@/features/quiz-taking/grading';
 import { submitSubmission } from '@/features/quiz-taking/submitSubmission';
-import { COLORS } from '@/theme/colors';
+import { colors, fonts, gradients, radii, shadows, sizes, spacing, type } from '@/theme';
 
 type LoadState =
   | { status: 'loading' }
@@ -41,6 +52,9 @@ type LoadState =
 // client-side against `public_quiz_data` (src/features/quiz-taking/grading.ts);
 // the submission is separately recorded in the background for the teacher
 // (Milestone 9, src/features/quiz-taking/submitSubmission.ts).
+//
+// Kept light for the web (docs/design/README §5.7): no assets beyond the
+// logo and the shared halo background.
 export default function PublicQuizScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
@@ -49,6 +63,7 @@ export default function PublicQuizScreen() {
   const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [submitted, setSubmitted] = useState(false);
+  const footerSpace = useStickyFooterSpace();
   // The quiz screen stays scrolled wherever the student left off when they
   // submit; scroll it back to the top so the score is what they see next.
   const scrollRef = useRef<ScrollView>(null);
@@ -110,8 +125,8 @@ export default function PublicQuizScreen() {
     return (
       <Screen>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Chargement du devoir…</Text>
+          <ActivityIndicator size="large" color={colors.brandViolet} />
+          <Text style={styles.centeredBody}>Chargement du devoir…</Text>
         </View>
       </Screen>
     );
@@ -121,8 +136,9 @@ export default function PublicQuizScreen() {
     return (
       <Screen>
         <View style={styles.centered}>
-          <Text style={styles.title}>Devoir introuvable</Text>
-          <Text style={styles.body}>
+          <Logo size={44} showWordmark={false} />
+          <Text style={styles.centeredTitle}>Devoir introuvable</Text>
+          <Text style={styles.centeredBody}>
             Ce lien n&apos;est plus valable. Demandez à votre enseignant·e de vous en renvoyer
             un.
           </Text>
@@ -135,11 +151,10 @@ export default function PublicQuizScreen() {
     return (
       <Screen>
         <View style={styles.centered}>
-          <Text style={styles.title}>Impossible d&apos;ouvrir ce devoir</Text>
-          <Text style={styles.body}>Vérifiez votre connexion Internet puis réessayez.</Text>
-          <Pressable style={styles.button} onPress={load} accessibilityRole="button">
-            <Text style={styles.buttonText}>Réessayer</Text>
-          </Pressable>
+          <Logo size={44} showWordmark={false} />
+          <Text style={styles.centeredTitle}>Impossible d&apos;ouvrir ce devoir</Text>
+          <Text style={styles.centeredBody}>Vérifiez votre connexion Internet puis réessayez.</Text>
+          <PrimaryButton label="Réessayer" onPress={load} style={styles.centeredButton} />
         </View>
       </Screen>
     );
@@ -148,6 +163,7 @@ export default function PublicQuizScreen() {
   const { quiz } = state;
   const allAnswered = areAllAnswered(quiz.questions, answers);
   const summary = submitted ? gradeQuiz(quiz.questions, answers) : null;
+  const trimmedName = studentName.trim();
 
   const setMultipleChoiceAnswer = (questionId: string, choice: string) => {
     if (submitted) return;
@@ -185,65 +201,106 @@ export default function PublicQuizScreen() {
     }
   };
 
-  const invitation = teacherName
-    ? `Ton enseignant·e ${teacherName} te propose ce quiz pour continuer à progresser !`
-    : 'Ton enseignant·e te propose ce quiz pour continuer à progresser !';
-
   if (!started) {
-    const trimmedName = studentName.trim();
+    const teacherInitials = initialsOf(teacherName);
     return (
       <Screen>
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-          <Logo size={38} style={styles.logo} />
-          <Text style={styles.invitation}>{invitation}</Text>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Logo size={36} />
 
-          <Text style={styles.title}>{quiz.title}</Text>
-          <Text style={styles.instructions}>{quiz.instructions}</Text>
+          <View style={styles.invitation}>
+            <LinearGradient {...gradients.selected} style={styles.teacherAvatar}>
+              {teacherInitials ? (
+                <Text style={styles.teacherAvatarText}>{teacherInitials}</Text>
+              ) : (
+                <Ionicons name="school-outline" size={20} color={colors.textOnBrand} />
+              )}
+            </LinearGradient>
+            <View style={styles.speechBubble}>
+              <Text style={styles.speechText}>
+                Ton enseignant·e{' '}
+                {teacherName ? <Text style={styles.speechStrong}>{teacherName} </Text> : null}
+                te propose ce quiz pour continuer à progresser !
+              </Text>
+            </View>
+          </View>
 
-          <Text style={styles.nameLabel}>Ton prénom</Text>
-          <TextInput
-            value={studentName}
-            onChangeText={setStudentName}
-            placeholder="Ton prénom"
-            placeholderTextColor="#999999"
-            selectionColor={COLORS.primary}
-            style={styles.nameInput}
-            accessibilityLabel="Ton prénom"
-          />
+          <HeroCard>
+            <View style={styles.countPill}>
+              <Text style={styles.countPillText}>
+                {quiz.questions.length} question{quiz.questions.length > 1 ? 's' : ''}
+              </Text>
+            </View>
+            <Text style={styles.heroTitle} accessibilityRole="header">
+              {quiz.title}
+            </Text>
+            <Text style={styles.heroBody}>{quiz.instructions}</Text>
+          </HeroCard>
 
-          <Pressable
-            style={[styles.button, trimmedName.length === 0 && styles.buttonDisabled]}
+          <View style={styles.nameField}>
+            <Text style={styles.nameLabel}>Ton prénom</Text>
+            <StudentNameInput value={studentName} onChangeText={setStudentName} />
+          </View>
+
+          <PrimaryButton
+            label="C’est parti !"
+            trailingIcon="arrow-forward"
+            size="large"
             onPress={() => setStarted(true)}
             disabled={trimmedName.length === 0}
-            accessibilityRole="button"
-          >
-            <Text style={styles.buttonText}>Commencer</Text>
-          </Pressable>
+          />
         </ScrollView>
       </Screen>
     );
   }
 
+  const answeredCount = quiz.questions.filter((q) => answers[q.id]?.value != null).length;
+
   return (
     <Screen>
       <ScrollView
         ref={scrollRef}
-        style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          // The footer also carries a one-line hint under the button.
+          !submitted && { paddingBottom: footerSpace + SUBMIT_HINT_SPACE },
+        ]}
       >
-        <Logo size={32} style={styles.logo} />
-        <Text style={styles.title}>{quiz.title}</Text>
-        <Text style={styles.instructions}>{quiz.instructions}</Text>
+        <Logo size={30} />
 
-      {summary && (
-        <View style={styles.scoreBox}>
-          <Text style={styles.scoreText}>
-            {summary.correctCount} / {summary.gradableCount} bonnes réponses
-          </Text>
-        </View>
-      )}
+        {summary ? (
+          <>
+            <HeroCard contentStyle={styles.scoreCard}>
+              <View accessibilityRole="summary" accessible>
+                <Text style={styles.scoreGreeting}>Bien joué {trimmedName} !</Text>
+                <Text style={styles.scoreValue}>
+                  {summary.correctCount}
+                  <Text style={styles.scoreTotal}> / {summary.gradableCount}</Text>
+                </Text>
+                <Text style={styles.scoreLabel}>
+                  bonne{summary.correctCount > 1 ? 's' : ''} réponse
+                  {summary.correctCount > 1 ? 's' : ''}
+                </Text>
+              </View>
+            </HeroCard>
+            <Text style={styles.correctionTitle} accessibilityRole="header">
+              La correction
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.title} accessibilityRole="header">
+              {quiz.title}
+            </Text>
+            <Text style={styles.instructions}>{quiz.instructions}</Text>
+            <ProgressHeader
+              studentName={trimmedName}
+              answered={answeredCount}
+              total={quiz.questions.length}
+            />
+          </>
+        )}
 
-      <View style={styles.questionList}>
         {quiz.questions.map((question, index) => {
           const answer = answers[question.id];
           const result = summary?.results.find((r) => r.questionId === question.id) ?? null;
@@ -255,286 +312,609 @@ export default function PublicQuizScreen() {
               {question.type === 'gap_fill' ? (
                 <GapFillSentence
                   sentence={question.question}
-                  filledWith={answer?.type === 'gap_fill' ? answer.value : null}
+                  filledWith={
+                    submitted ? question.correctAnswer : answer?.type === 'gap_fill' ? answer.value : null
+                  }
+                  isCorrection={submitted}
                 />
               ) : (
                 <Text style={styles.questionText}>{question.question}</Text>
               )}
 
-              {(question.type === 'multiple_choice' || question.type === 'gap_fill') && (
-                <View style={styles.choiceList}>
-                  {question.choices.map((choice, choiceIndex) => {
-                    const isSelected =
-                      (answer?.type === 'multiple_choice' || answer?.type === 'gap_fill') &&
-                      answer.value === choice;
-                    const isCorrectChoice = submitted && choice === question.correctAnswer;
-                    const isWrongSelected = submitted && isSelected && !isCorrectChoice;
-                    const onPick =
-                      question.type === 'gap_fill'
-                        ? () => setGapFillAnswer(question.id, choice)
-                        : () => setMultipleChoiceAnswer(question.id, choice);
-
-                    return (
-                      <Pressable
-                        key={choiceIndex}
-                        onPress={onPick}
-                        disabled={submitted}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: isSelected, disabled: submitted }}
-                        style={[
-                          styles.choiceOption,
-                          isSelected && styles.choiceOptionSelected,
-                          isCorrectChoice && styles.choiceOptionCorrect,
-                          isWrongSelected && styles.choiceOptionWrong,
-                        ]}
-                      >
-                        <View style={styles.choiceRow}>
-                          {isCorrectChoice && (
-                            <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />
-                          )}
-                          {isWrongSelected && (
-                            <Ionicons name="close-circle" size={18} color="#D9463F" />
-                          )}
-                          <Text style={styles.choiceText}>{choice}</Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              {question.type === 'true_false' && (
-                <View style={styles.trueFalseRow}>
-                  {([true, false] as const).map((value) => {
-                    const label = value ? 'Vrai' : 'Faux';
-                    const isSelected = answer?.type === 'true_false' && answer.value === value;
-                    const isCorrectChoice = submitted && value === question.correctAnswer;
-                    const isWrongSelected = submitted && isSelected && !isCorrectChoice;
-
-                    return (
-                      <Pressable
-                        key={label}
-                        onPress={() => setTrueFalseAnswer(question.id, value)}
-                        disabled={submitted}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: isSelected, disabled: submitted }}
-                        style={[
-                          styles.trueFalseOption,
-                          isSelected && styles.choiceOptionSelected,
-                          isCorrectChoice && styles.choiceOptionCorrect,
-                          isWrongSelected && styles.choiceOptionWrong,
-                        ]}
-                      >
-                        <View style={styles.choiceRow}>
-                          {isCorrectChoice && (
-                            <Ionicons name="checkmark-circle" size={18} color="#2E9E5B" />
-                          )}
-                          {isWrongSelected && (
-                            <Ionicons name="close-circle" size={18} color="#D9463F" />
-                          )}
-                          <Text style={styles.choiceText}>{label}</Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+              {submitted ? (
+                <Correction question={question} answer={answer} />
+              ) : (
+                <AnswerOptions
+                  question={question}
+                  answer={answer}
+                  onPickChoice={(choice) =>
+                    question.type === 'gap_fill'
+                      ? setGapFillAnswer(question.id, choice)
+                      : setMultipleChoiceAnswer(question.id, choice)
+                  }
+                  onPickTrueFalse={(value) => setTrueFalseAnswer(question.id, value)}
+                />
               )}
 
               {submitted && result && (
-                <Text style={result.isCorrect ? styles.feedbackCorrect : styles.feedbackWrong}>
-                  {result.isCorrect ? 'Bonne réponse !' : 'Ce n’est pas ça.'}
-                </Text>
+                <View style={styles.feedbackRow}>
+                  <Ionicons
+                    name={result.isCorrect ? 'checkmark' : 'sparkles-outline'}
+                    size={18}
+                    color={result.isCorrect ? colors.success.text : colors.warning.textSoft}
+                  />
+                  <Text style={result.isCorrect ? styles.feedbackCorrect : styles.feedbackAlmost}>
+                    {result.isCorrect ? 'Bonne réponse !' : 'Presque ! La bonne réponse est en vert.'}
+                  </Text>
+                </View>
               )}
 
-              {submitted && question.explanation && (
-                <Text style={styles.explanationText}>{question.explanation}</Text>
-              )}
+              {submitted && question.explanation ? (
+                <Text style={styles.explanation}>{question.explanation}</Text>
+              ) : null}
             </View>
           );
         })}
-      </View>
+
+        {submitted && (
+          <Pressable
+            onPress={handleRetry}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="refresh" size={20} color={colors.actionText} />
+            <Text style={styles.retryText}>Recommencer</Text>
+          </Pressable>
+        )}
+      </ScrollView>
 
       {!submitted && quiz.questions.length > 0 && (
-        <Pressable
-          style={[styles.button, !allAnswered && styles.buttonDisabled]}
-          onPress={handleSubmit}
-          disabled={!allAnswered}
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonText}>Valider mes réponses</Text>
-        </Pressable>
+        <StickyFooter>
+          <PrimaryButton
+            label="Valider mes réponses"
+            size="large"
+            onPress={handleSubmit}
+            disabled={!allAnswered}
+          />
+          {!allAnswered && (
+            <Text style={styles.submitHint}>Réponds à toutes les questions pour valider.</Text>
+          )}
+        </StickyFooter>
       )}
-
-      {submitted && (
-        <Pressable style={styles.buttonSecondary} onPress={handleRetry} accessibilityRole="button">
-          <Text style={styles.buttonSecondaryText}>Recommencer</Text>
-        </Pressable>
-      )}
-      </ScrollView>
     </Screen>
   );
 }
 
+// "Mme Dupont" → "D": the civility isn't part of the initials.
+function initialsOf(name: string | null): string {
+  if (!name) return '';
+  const titles = TEACHER_TITLES.map((t) => t.value as string);
+  return name
+    .split(/\s+/)
+    .filter((word) => word && !titles.includes(word))
+    .map((word) => word.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('');
+}
+
+function StudentNameInput({
+  value,
+  onChangeText,
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+}) {
+  const [isFocused, setIsFocused] = useState(false);
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChangeText}
+      placeholder="Ton prénom"
+      placeholderTextColor={colors.textMuted}
+      selectionColor={colors.brandViolet}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      style={[styles.nameInput, isFocused && styles.nameInputFocused]}
+      accessibilityLabel="Ton prénom"
+    />
+  );
+}
+
+// Encouragement + "x / n répondues" bar, computed locally from the answers.
+function ProgressHeader({
+  studentName,
+  answered,
+  total,
+}: {
+  studentName: string;
+  answered: number;
+  total: number;
+}) {
+  const message =
+    answered === 0
+      ? `À toi de jouer, ${studentName} !`
+      : answered === total
+        ? `Bravo ${studentName}, tu peux valider !`
+        : `Bravo ${studentName}, continue !`;
+  return (
+    <View style={styles.progress}>
+      <View style={styles.progressLabels}>
+        <Text style={styles.progressMessage}>{message}</Text>
+        <Text style={styles.progressCount}>
+          {answered} / {total} répondue{answered > 1 ? 's' : ''}
+        </Text>
+      </View>
+      <View
+        style={styles.progressTrack}
+        accessibilityRole="progressbar"
+        accessibilityLabel="Questions répondues"
+        accessibilityValue={{ min: 0, max: total, now: answered }}
+      >
+        {answered > 0 && (
+          <LinearGradient
+            {...gradients.progress}
+            style={[styles.progressFill, { width: `${(answered / total) * 100}%` }]}
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
+function AnswerOptions({
+  question,
+  answer,
+  onPickChoice,
+  onPickTrueFalse,
+}: {
+  question: PublicQuestion;
+  answer: StudentAnswer | undefined;
+  onPickChoice: (choice: string) => void;
+  onPickTrueFalse: (value: boolean) => void;
+}) {
+  if (question.type === 'true_false') {
+    return (
+      <View style={styles.trueFalseRow} accessibilityRole="radiogroup">
+        {([true, false] as const).map((value) => {
+          const label = value ? 'Vrai' : 'Faux';
+          const isSelected = answer?.type === 'true_false' && answer.value === value;
+          return (
+            <Pressable
+              key={label}
+              onPress={() => onPickTrueFalse(value)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: isSelected }}
+              style={[styles.trueFalseOption, isSelected && styles.optionSelected]}
+            >
+              <Text style={[styles.trueFalseText, isSelected && styles.optionTextSelected]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+
+  const isGapFill = question.type === 'gap_fill';
+  return (
+    <View style={isGapFill ? styles.wordList : styles.choiceList} accessibilityRole="radiogroup">
+      {question.choices.map((choice, choiceIndex) => {
+        const isSelected =
+          (answer?.type === 'multiple_choice' || answer?.type === 'gap_fill') &&
+          answer.value === choice;
+        return (
+          <Pressable
+            key={choiceIndex}
+            onPress={() => onPickChoice(choice)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: isSelected }}
+            style={[isGapFill ? styles.wordOption : styles.choiceOption, isSelected && styles.optionSelected]}
+          >
+            {!isGapFill && (
+              <View style={[styles.radio, isSelected && styles.radioSelected]}>
+                {isSelected && <View style={styles.radioDot} />}
+              </View>
+            )}
+            <Text style={[styles.choiceText, isSelected && styles.optionTextSelected]}>{choice}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// After submission: the right answer in green with a check icon; the
+// student's wrong pick (if any) in soft orange, dashed, labelled "Ton choix"
+// — never red, never color alone (docs/design/README §5.3, CLAUDE.md §37).
+function Correction({
+  question,
+  answer,
+}: {
+  question: PublicQuestion;
+  answer: StudentAnswer | undefined;
+}) {
+  if (question.type === 'true_false') {
+    return (
+      <View style={styles.trueFalseRow}>
+        {([true, false] as const).map((value) => {
+          const label = value ? 'Vrai' : 'Faux';
+          const isCorrect = value === question.correctAnswer;
+          const isPicked = answer?.type === 'true_false' && answer.value === value;
+          return (
+            <CorrectionOption
+              key={label}
+              label={label}
+              state={isCorrect ? 'correct' : isPicked ? 'picked' : 'other'}
+              centered
+            />
+          );
+        })}
+      </View>
+    );
+  }
+
+  const picked =
+    answer?.type === 'multiple_choice' || answer?.type === 'gap_fill' ? answer.value : null;
+  const gotItRight = picked === question.correctAnswer;
+
+  // Gap fill: the sentence above already shows the right word in green; the
+  // words are only repeated when the student picked another one.
+  if (question.type === 'gap_fill') {
+    if (gotItRight) return null;
+    return (
+      <View style={styles.choiceList}>
+        <CorrectionOption label={question.correctAnswer} state="correct" />
+        {picked ? <CorrectionOption label={picked} state="picked" /> : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.choiceList}>
+      {question.choices.map((choice, choiceIndex) => (
+        <CorrectionOption
+          key={choiceIndex}
+          label={choice}
+          state={
+            choice === question.correctAnswer ? 'correct' : choice === picked ? 'picked' : 'other'
+          }
+        />
+      ))}
+    </View>
+  );
+}
+
+function CorrectionOption({
+  label,
+  state,
+  centered = false,
+}: {
+  label: string;
+  state: 'correct' | 'picked' | 'other';
+  centered?: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.correctionOption,
+        centered && styles.correctionCentered,
+        state === 'correct' && styles.correctionCorrect,
+        state === 'picked' && styles.correctionPicked,
+      ]}
+      accessibilityLabel={
+        state === 'correct'
+          ? `${label}, bonne réponse`
+          : state === 'picked'
+            ? `${label}, ton choix`
+            : label
+      }
+      accessible
+    >
+      {state === 'correct' && (
+        <Ionicons name="checkmark-circle" size={22} color={colors.success.border} />
+      )}
+      {state === 'picked' && <Text style={styles.pickedTag}>Ton choix</Text>}
+      <Text
+        style={[
+          styles.correctionText,
+          state === 'correct' && styles.correctionTextCorrect,
+          state === 'picked' && styles.correctionTextPicked,
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 // A "texte à trous" sentence with its blank shown inline: an empty slot before
-// the student answers, the chosen word once they pick one.
+// the student answers, the chosen word once they pick one — and the right
+// word, in green, in the correction.
 function GapFillSentence({
   sentence,
   filledWith,
+  isCorrection,
 }: {
   sentence: string;
   filledWith: string | null;
+  isCorrection: boolean;
 }) {
   const markerIndex = sentence.indexOf(BLANK_MARKER);
   const before = markerIndex >= 0 ? sentence.slice(0, markerIndex) : sentence;
   const after = markerIndex >= 0 ? sentence.slice(markerIndex + BLANK_MARKER.length) : '';
 
   return (
-    <Text style={styles.questionText}>
+    <Text style={[styles.questionText, styles.gapSentence]}>
       {before}
-      <Text style={filledWith ? styles.gapFilled : styles.gapEmpty}>
-        {filledWith ? ` ${filledWith} ` : '  …  '}
+      <Text
+        style={[
+          styles.gap,
+          filledWith ? styles.gapFilled : styles.gapEmpty,
+          isCorrection && styles.gapCorrect,
+        ]}
+      >
+        {filledWith ? ` ${filledWith} ` : '  …  '}
       </Text>
       {after}
     </Text>
   );
 }
 
+const STUDENT_CARD_RADIUS = 26;
+const SUBMIT_HINT_SPACE = 28;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   content: {
-    padding: 24,
-    paddingBottom: 48,
-    gap: 4,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    paddingBottom: 40,
+    gap: spacing.lg,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+  },
+  pressed: {
+    opacity: 0.7,
   },
   centered: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    gap: 12,
+    padding: spacing.xxl,
+    gap: spacing.md,
   },
-  loadingText: {
-    fontSize: 15,
-    color: '#555555',
-  },
-  logo: {
-    marginBottom: 16,
-  },
-  invitation: {
-    fontSize: 15,
-    color: COLORS.primaryPressed,
-    fontWeight: '600',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  body: {
-    fontSize: 15,
-    color: '#333333',
+  centeredTitle: {
+    ...type.heroTitle,
+    color: colors.text,
     textAlign: 'center',
   },
-  instructions: {
-    fontSize: 15,
-    color: '#333333',
-    marginBottom: 20,
+  centeredBody: {
+    ...type.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  centeredButton: {
+    alignSelf: 'stretch',
+    marginTop: spacing.sm,
+  },
+  invitation: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  teacherAvatar: {
+    width: sizes.touchTarget,
+    height: sizes.touchTarget,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teacherAvatarText: {
+    fontFamily: fonts.heading,
+    fontSize: 16,
+    color: colors.textOnBrand,
+  },
+  speechBubble: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 6,
+    backgroundColor: colors.surface,
+    boxShadow: shadows.speechBubble,
+  },
+  speechText: {
+    ...type.body,
+    lineHeight: 23,
+    color: colors.text,
+  },
+  speechStrong: {
+    fontFamily: fonts.bodySemiBold,
+  },
+  countPill: {
+    alignSelf: 'flex-start',
+    height: 28,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: colors.onBrandBadge,
+  },
+  countPillText: {
+    ...type.metaStrong,
+    color: colors.textOnBrand,
+  },
+  heroTitle: {
+    ...type.title,
+    lineHeight: 33,
+    color: colors.textOnBrand,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  heroBody: {
+    ...type.body,
+    lineHeight: 23,
+    color: colors.textOnBrandSoft,
+  },
+  nameField: {
+    gap: spacing.sm,
   },
   nameLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 6,
+    ...type.bodyEmphasis,
+    fontSize: 17,
+    color: colors.text,
   },
   nameInput: {
-    borderWidth: 2,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    color: '#1A1A1A',
-    backgroundColor: '#FFFFFF',
-    marginBottom: 20,
+    fontFamily: fonts.body,
+    fontSize: 20,
+    height: 60,
+    paddingHorizontal: 18,
+    borderRadius: radii.row,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    color: colors.text,
   },
-  scoreBox: {
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 20,
-    alignItems: 'center',
+  nameInputFocused: {
+    borderColor: colors.brandViolet,
+    boxShadow: shadows.focusRing,
   },
-  scoreText: {
-    color: COLORS.primaryPressed,
-    fontSize: 17,
-    fontWeight: '700',
+  title: {
+    ...type.heroTitle,
+    color: colors.text,
   },
-  questionList: {
-    gap: 14,
-    marginBottom: 20,
+  instructions: {
+    ...type.body,
+    lineHeight: 23,
+    color: colors.textBody,
+    marginTop: -spacing.sm,
   },
-  card: {
-    backgroundColor: '#F7F7F8',
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
-  },
-  cardLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#777777',
-    textTransform: 'uppercase',
-  },
-  questionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  gapEmpty: {
-    color: COLORS.primary,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  gapFilled: {
-    color: COLORS.primaryPressed,
-    fontWeight: '700',
-  },
-  choiceList: {
-    gap: 8,
-  },
-  choiceOption: {
-    borderWidth: 2,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  choiceOptionSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryLight,
-  },
-  choiceOptionCorrect: {
-    borderColor: '#2E9E5B',
-    backgroundColor: '#E7F6EC',
-  },
-  choiceOptionWrong: {
-    borderColor: '#D9463F',
-    backgroundColor: '#FBEAEA',
-  },
-  choiceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  progress: {
     gap: 6,
   },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  progressMessage: {
+    ...type.labelStrong,
+    flex: 1,
+    color: colors.text,
+  },
+  progressCount: {
+    ...type.labelStrong,
+    color: colors.textSecondary,
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: colors.track,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  card: {
+    gap: 14,
+    padding: spacing.xl,
+    borderRadius: STUDENT_CARD_RADIUS,
+    backgroundColor: colors.surface,
+    boxShadow: shadows.studentCard,
+  },
+  cardLabel: {
+    ...type.metaStrong,
+    letterSpacing: 0.78,
+    textTransform: 'uppercase',
+    color: colors.brandViolet,
+  },
+  questionText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 20,
+    lineHeight: 27,
+    color: colors.text,
+  },
+  gapSentence: {
+    lineHeight: 32,
+  },
+  gap: {
+    fontFamily: fonts.bodySemiBold,
+  },
+  gapEmpty: {
+    color: colors.tint.violet.text,
+    backgroundColor: colors.tint.violet.background,
+  },
+  gapFilled: {
+    color: colors.tint.violet.text,
+    backgroundColor: colors.tint.violet.background,
+  },
+  gapCorrect: {
+    color: colors.success.text,
+    backgroundColor: colors.success.background,
+  },
+  choiceList: {
+    gap: 10,
+  },
+  choiceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 56,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.row,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  wordList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  wordOption: {
+    minHeight: 52,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+  },
+  optionSelected: {
+    borderWidth: 2,
+    borderColor: colors.brandViolet,
+    backgroundColor: colors.selectedSoft,
+  },
+  radio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: {
+    borderColor: colors.brandViolet,
+  },
+  radioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.brandViolet,
+  },
   choiceText: {
-    fontSize: 15,
-    color: '#333333',
+    fontFamily: fonts.bodyMedium,
+    fontSize: 18,
+    flexShrink: 1,
+    color: colors.text,
+  },
+  optionTextSelected: {
+    fontFamily: fonts.bodySemiBold,
   },
   trueFalseRow: {
     flexDirection: 'row',
@@ -542,54 +922,146 @@ const styles = StyleSheet.create({
   },
   trueFalseOption: {
     flex: 1,
-    borderWidth: 2,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
-    paddingVertical: 12,
+    height: 64,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    borderRadius: radii.row,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  trueFalseText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 19,
+    color: colors.text,
+  },
+  correctionOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 54,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.row,
+    borderWidth: 1.5,
+    borderColor: colors.trackSoft,
+  },
+  correctionCentered: {
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  correctionCorrect: {
+    borderWidth: 2,
+    borderColor: colors.success.border,
+    backgroundColor: colors.success.background,
+  },
+  correctionPicked: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.warning.border,
+    backgroundColor: colors.warning.backgroundSoft,
+  },
+  pickedTag: {
+    ...type.metaStrong,
+    fontSize: 12,
+    color: colors.warning.textSoft,
+  },
+  correctionText: {
+    fontFamily: fonts.body,
+    fontSize: 17,
+    flexShrink: 1,
+    color: colors.textSecondary,
+  },
+  correctionTextCorrect: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 18,
+    color: colors.text,
+  },
+  correctionTextPicked: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 18,
+    color: colors.warning.text,
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   feedbackCorrect: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2E9E5B',
+    ...type.bodyEmphasis,
+    flex: 1,
+    color: colors.success.text,
   },
-  feedbackWrong: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#D9463F',
+  feedbackAlmost: {
+    ...type.bodyEmphasis,
+    flex: 1,
+    color: colors.warning.textSoft,
   },
-  explanationText: {
-    fontSize: 14,
-    color: '#555555',
+  explanation: {
+    ...type.body,
+    fontSize: 15,
+    lineHeight: 22,
+    paddingVertical: spacing.md,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    color: colors.textBody,
   },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+  scoreCard: {
     alignItems: 'center',
+    paddingVertical: 26,
   },
-  buttonDisabled: {
-    backgroundColor: COLORS.primaryMuted,
+  scoreGreeting: {
+    ...type.bodyEmphasis,
+    color: colors.textOnBrandSoft,
+    textAlign: 'center',
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  scoreValue: {
+    fontFamily: fonts.heading,
+    fontSize: 56,
+    lineHeight: 62,
+    color: colors.textOnBrand,
+    textAlign: 'center',
+    marginTop: 6,
   },
-  buttonSecondary: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  scoreTotal: {
+    fontSize: 32,
+    color: colors.textOnBrandSoft,
+  },
+  scoreLabel: {
+    ...type.bodyEmphasis,
+    fontSize: 17,
+    color: colors.textOnBrand,
+    textAlign: 'center',
+  },
+  correctionTitle: {
+    fontFamily: fonts.heading,
+    fontSize: 22,
+    color: colors.text,
+    marginTop: spacing.xs,
+  },
+  retryButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: sizes.primaryButton,
+    borderRadius: radii.chip,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  buttonSecondaryText: {
-    color: COLORS.primary,
-    fontSize: 16,
-    fontWeight: '600',
+  retryText: {
+    ...type.bodyEmphasis,
+    fontSize: 17,
+    color: colors.actionText,
+  },
+  submitHint: {
+    ...type.label,
+    fontFamily: fonts.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });

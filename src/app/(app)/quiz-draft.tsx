@@ -1,25 +1,25 @@
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { BackButton } from '@/components/BackButton';
+import { Banner } from '@/components/Banner';
+import { GlassCard } from '@/components/GlassCard';
+import { QuizRecapPills } from '@/components/Pill';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { StepLabel } from '@/components/StepIndicator';
+import { StickyFooter, useStickyFooterSpace } from '@/components/StickyFooter';
+import { TextField } from '@/components/TextField';
 import { supabase } from '@shared/supabase/client';
 import { GRADES } from '@shared/domain/grade';
 import { SUBJECTS } from '@shared/domain/subject';
 import { EXERCISE_TYPES } from '@shared/domain/exercise';
 import { BLANK_MARKER, QuizDataSchema, type Question, type QuizData } from '@shared/domain/quiz';
 import { LESSON_MODE_LABELS, LESSON_MODES, type LessonMode } from '@shared/domain/lessonMode';
-import { COLORS } from '@/theme/colors';
+import { colors, radii, sequenceGradients, shadows, sizes, spacing, type } from '@/theme';
 
 // Editable preview of the AI-generated draft (Milestone 6), now wired to
 // publishing (Milestone 7). The teacher stays in control of the final
@@ -37,14 +37,13 @@ export default function QuizDraftScreen() {
   const lessonMode = parseLessonMode(lessonModeParam);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const footerSpace = useStickyFooterSpace();
 
   if (!quiz) {
     return (
       <Screen>
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-          <Pressable onPress={() => router.back()} accessibilityRole="button">
-            <Text style={styles.back}>‹ Retour</Text>
-          </Pressable>
+        <ScrollView contentContainerStyle={styles.content}>
+          <BackButton onPress={() => router.back()} />
           <Text style={styles.title}>Devoir introuvable</Text>
           <Text style={styles.body}>
             Ce brouillon n&apos;est plus disponible. Revenez en arrière et recommencez.
@@ -64,6 +63,9 @@ export default function QuizDraftScreen() {
   const subjectLabel = SUBJECTS.find((s) => s.value === currentQuiz.subject)?.label ?? currentQuiz.subject;
   const quizTypeLabel =
     EXERCISE_TYPES.find((t) => t.value === currentQuiz.quizType)?.label ?? currentQuiz.quizType;
+  const questionCountLabel = `${currentQuiz.questions.length} question${
+    currentQuiz.questions.length > 1 ? 's' : ''
+  }`;
 
   function updateQuestion(questionId: string, updater: (question: Question) => Question) {
     setQuiz((prev) =>
@@ -166,125 +168,116 @@ export default function QuizDraftScreen() {
   return (
     <Screen>
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: footerSpace }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Pressable onPress={() => router.back()} accessibilityRole="button">
-          <Text style={styles.back}>‹ Retour</Text>
-        </Pressable>
-
-        <TextInput
-          style={styles.titleInput}
-          value={currentQuiz.title}
-          onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, title: text } : prev))}
-          placeholder="Titre du devoir"
-          accessibilityLabel="Titre du devoir"
-        />
-        <Text style={styles.subtitle}>
-          {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {currentQuiz.questions.length} question
-          {currentQuiz.questions.length > 1 ? 's' : ''}
-        </Text>
-
-        <TextInput
-          style={styles.instructionsInput}
-          value={currentQuiz.instructions}
-          onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, instructions: text } : prev))}
-          placeholder="Consigne pour l'élève"
-          accessibilityLabel="Consigne du devoir"
-          multiline
-        />
-
-        {lessonMode && (
-          <View style={styles.lessonModeBox}>
-            <Text style={styles.lessonModeText}>{LESSON_MODE_LABELS[lessonMode]}</Text>
-          </View>
-        )}
-
-        {currentQuiz.warnings.length > 0 && (
-          <View style={styles.warningBox}>
-            {currentQuiz.warnings.map((warning, index) => (
-              <Text key={index} style={styles.warningText}>
-                {warning}
-              </Text>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.questionList}>
-          {currentQuiz.questions.map((question, index) => (
-            <QuestionCard
-              key={question.id}
-              index={index}
-              question={question}
-              onChangeQuestionText={(text) =>
-                updateQuestion(question.id, (q) => ({ ...q, question: text }))
-              }
-              onChangeChoiceText={(choiceIndex, text) =>
-                updateQuestion(question.id, (q) => {
-                  if (!isChoiceQuestion(q)) return q;
-                  const oldChoice = q.choices[choiceIndex];
-                  const choices = q.choices.map((c, i) => (i === choiceIndex ? text : c));
-                  const correctAnswer = q.correctAnswer === oldChoice ? text : q.correctAnswer;
-                  return { ...q, choices, correctAnswer };
-                })
-              }
-              onSelectCorrectChoice={(choiceIndex) =>
-                updateQuestion(question.id, (q) =>
-                  isChoiceQuestion(q) ? { ...q, correctAnswer: q.choices[choiceIndex] } : q
-                )
-              }
-              onAddChoice={() =>
-                updateQuestion(question.id, (q) =>
-                  isChoiceQuestion(q) && q.choices.length < maxChoicesFor(q)
-                    ? { ...q, choices: [...q.choices, ''] }
-                    : q
-                )
-              }
-              onRemoveChoice={(choiceIndex) =>
-                updateQuestion(question.id, (q) => {
-                  if (!isChoiceQuestion(q) || q.choices.length <= 2) return q;
-                  const removed = q.choices[choiceIndex];
-                  const choices = q.choices.filter((_, i) => i !== choiceIndex);
-                  const correctAnswer = q.correctAnswer === removed ? choices[0] : q.correctAnswer;
-                  return { ...q, choices, correctAnswer };
-                })
-              }
-              onSelectTrueFalse={(value) =>
-                updateQuestion(question.id, (q) => (q.type === 'true_false' ? { ...q, correctAnswer: value } : q))
-              }
-              onDelete={() => handleDeleteQuestion(question.id)}
-            />
-          ))}
+        <View style={styles.topRow}>
+          <BackButton onPress={() => router.back()} />
+          <StepLabel step={3} suffix="Relecture" />
         </View>
 
+        <GlassCard style={styles.summary}>
+          <TextField
+            label="Titre du devoir"
+            labelVariant="caps"
+            value={currentQuiz.title}
+            onChangeText={(text) => setQuiz((prev) => (prev ? { ...prev, title: text } : prev))}
+            placeholder="Titre du devoir"
+            inputStyle={styles.titleInput}
+          />
+          <QuizRecapPills
+            labels={[gradeLabel, subjectLabel, quizTypeLabel, questionCountLabel]}
+            size="sm"
+          />
+          <View style={styles.instructionsField}>
+            <TextField
+              label="Consigne pour l’élève"
+              labelVariant="caps"
+              value={currentQuiz.instructions}
+              onChangeText={(text) =>
+                setQuiz((prev) => (prev ? { ...prev, instructions: text } : prev))
+              }
+              placeholder="Consigne pour l'élève"
+              multiline
+              inputStyle={styles.instructionsInput}
+            />
+          </View>
+        </GlassCard>
+
+        {lessonMode && <Banner tone="info" messages={LESSON_MODE_LABELS[lessonMode]} />}
+
+        {currentQuiz.warnings.length > 0 && <Banner tone="warning" messages={currentQuiz.warnings} />}
+
+        {currentQuiz.questions.map((question, index) => (
+          <QuestionCard
+            key={question.id}
+            index={index}
+            question={question}
+            onChangeQuestionText={(text) =>
+              updateQuestion(question.id, (q) => ({ ...q, question: text }))
+            }
+            onChangeChoiceText={(choiceIndex, text) =>
+              updateQuestion(question.id, (q) => {
+                if (!isChoiceQuestion(q)) return q;
+                const oldChoice = q.choices[choiceIndex];
+                const choices = q.choices.map((c, i) => (i === choiceIndex ? text : c));
+                const correctAnswer = q.correctAnswer === oldChoice ? text : q.correctAnswer;
+                return { ...q, choices, correctAnswer };
+              })
+            }
+            onSelectCorrectChoice={(choiceIndex) =>
+              updateQuestion(question.id, (q) =>
+                isChoiceQuestion(q) ? { ...q, correctAnswer: q.choices[choiceIndex] } : q
+              )
+            }
+            onAddChoice={() =>
+              updateQuestion(question.id, (q) =>
+                isChoiceQuestion(q) && q.choices.length < maxChoicesFor(q)
+                  ? { ...q, choices: [...q.choices, ''] }
+                  : q
+              )
+            }
+            onRemoveChoice={(choiceIndex) =>
+              updateQuestion(question.id, (q) => {
+                if (!isChoiceQuestion(q) || q.choices.length <= 2) return q;
+                const removed = q.choices[choiceIndex];
+                const choices = q.choices.filter((_, i) => i !== choiceIndex);
+                const correctAnswer = q.correctAnswer === removed ? choices[0] : q.correctAnswer;
+                return { ...q, choices, correctAnswer };
+              })
+            }
+            onSelectTrueFalse={(value) =>
+              updateQuestion(question.id, (q) => (q.type === 'true_false' ? { ...q, correctAnswer: value } : q))
+            }
+            onDelete={() => handleDeleteQuestion(question.id)}
+          />
+        ))}
+
         <Pressable
-          style={styles.addQuestionButton}
+          style={({ pressed }) => [styles.addQuestionButton, pressed && styles.pressed]}
           onPress={promptAddQuestion}
           accessibilityRole="button"
         >
-          <Text style={styles.addQuestionText}>+ Ajouter une question</Text>
-        </Pressable>
-
-        {publishError ? (
-          <Text style={styles.error} accessibilityRole="alert">
-            {publishError}
-          </Text>
-        ) : null}
-
-        <Pressable
-          style={[styles.button, isPublishing && styles.buttonDisabled]}
-          onPress={handlePublish}
-          disabled={isPublishing}
-          accessibilityRole="button"
-        >
-          {isPublishing ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.buttonText}>Publier le devoir</Text>
-          )}
+          <Ionicons name="add" size={20} color={colors.actionText} />
+          <Text style={styles.addQuestionText}>Ajouter une question</Text>
         </Pressable>
       </ScrollView>
+
+      <StickyFooter>
+        {/* Shown right above the button, not at the end of a long scroll,
+            so the teacher sees why nothing happened. */}
+        {publishError ? (
+          <View style={styles.footerError}>
+            <Banner tone="error" messages={publishError} />
+          </View>
+        ) : null}
+        <PrimaryButton
+          label="Publier le devoir"
+          icon="paper-plane-outline"
+          onPress={handlePublish}
+          loading={isPublishing}
+        />
+      </StickyFooter>
     </Screen>
   );
 }
@@ -369,6 +362,14 @@ function findQuizIssues(quiz: QuizData): string[] {
   return issues;
 }
 
+// Card label and number-badge gradient per question type, so a teacher can
+// tell the types apart while scrolling a mixed quiz.
+const QUESTION_TYPE_STYLE: Record<Question['type'], { label: string; gradient: number }> = {
+  multiple_choice: { label: 'Choix multiple', gradient: 0 },
+  true_false: { label: 'Vrai ou Faux', gradient: 1 },
+  gap_fill: { label: 'Texte à trous', gradient: 2 },
+};
+
 type QuestionCardProps = {
   index: number;
   question: Question;
@@ -392,17 +393,29 @@ function QuestionCard({
   onSelectTrueFalse,
   onDelete,
 }: QuestionCardProps) {
+  const typeStyle = QUESTION_TYPE_STYLE[question.type];
+  const number = index + 1;
+
   return (
-    <View style={styles.card}>
+    <GlassCard style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardLabel}>Question {index + 1}</Text>
-        <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel="Supprimer cette question">
-          <Text style={styles.deleteText}>Supprimer</Text>
+        <View style={styles.cardHeading}>
+          <LinearGradient {...sequenceGradients[typeStyle.gradient]} style={styles.numberBadge}>
+            <Text style={styles.numberText}>{number}</Text>
+          </LinearGradient>
+          <Text style={styles.typeLabel}>{typeStyle.label}</Text>
+        </View>
+        <Pressable
+          onPress={onDelete}
+          accessibilityRole="button"
+          accessibilityLabel={`Supprimer la question ${number}`}
+          style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.danger.text} />
         </Pressable>
       </View>
 
-      <TextInput
-        style={styles.questionInput}
+      <TextField
         value={question.question}
         onChangeText={onChangeQuestionText}
         placeholder={
@@ -410,8 +423,9 @@ function QuestionCard({
             ? `Phrase à compléter (mettez ${BLANK_MARKER} à l'endroit du trou)`
             : 'Énoncé de la question'
         }
-        accessibilityLabel={`Énoncé de la question ${index + 1}`}
+        accessibilityLabel={`Énoncé de la question ${number}`}
         multiline
+        inputStyle={styles.questionInput}
       />
 
       {question.type === 'gap_fill' && (
@@ -432,34 +446,41 @@ function QuestionCard({
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isCorrect }}
                   accessibilityLabel="Marquer comme bonne réponse"
-                  style={styles.radioTouchArea}
+                  hitSlop={10}
                 >
                   <View style={[styles.radioOuter, isCorrect && styles.radioOuterSelected]}>
                     {isCorrect && <View style={styles.radioInner} />}
                   </View>
                 </Pressable>
                 <TextInput
-                  style={styles.choiceInput}
+                  style={[styles.choiceInput, isCorrect && styles.choiceInputCorrect]}
                   value={choice}
                   onChangeText={(text) => onChangeChoiceText(choiceIndex, text)}
                   placeholder="Réponse"
-                  accessibilityLabel={`Réponse ${choiceIndex + 1} de la question ${index + 1}`}
+                  placeholderTextColor={colors.textMuted}
+                  accessibilityLabel={`Réponse ${choiceIndex + 1} de la question ${number}`}
                 />
+                {isCorrect && <Text style={styles.correctTag}>Bonne réponse</Text>}
                 {question.choices.length > 2 && (
                   <Pressable
                     onPress={() => onRemoveChoice(choiceIndex)}
                     accessibilityRole="button"
                     accessibilityLabel="Supprimer cette réponse"
-                    hitSlop={8}
+                    style={styles.removeChoice}
                   >
-                    <Ionicons name="close-circle" size={20} color="#999999" />
+                    <Ionicons name="close" size={18} color={colors.textMuted} />
                   </Pressable>
                 )}
               </View>
             );
           })}
           {question.choices.length < maxChoicesFor(question) && (
-            <Pressable onPress={onAddChoice} accessibilityRole="button">
+            <Pressable
+              onPress={onAddChoice}
+              accessibilityRole="button"
+              style={styles.addChoice}
+              hitSlop={4}
+            >
               <Text style={styles.addChoiceText}>+ Ajouter une réponse</Text>
             </Pressable>
           )}
@@ -467,7 +488,7 @@ function QuestionCard({
       )}
 
       {question.type === 'true_false' && (
-        <View style={styles.choiceList}>
+        <View style={styles.trueFalseRow} accessibilityRole="radiogroup" accessibilityLabel="Bonne réponse">
           {[true, false].map((value) => {
             const isCorrect = value === question.correctAnswer;
             return (
@@ -476,12 +497,10 @@ function QuestionCard({
                 onPress={() => onSelectTrueFalse(value)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isCorrect }}
-                style={[styles.choiceRow, isCorrect && styles.choiceCorrect]}
+                style={[styles.trueFalseOption, isCorrect && styles.choiceCorrect]}
               >
-                <View style={[styles.radioOuter, isCorrect && styles.radioOuterSelected]}>
-                  {isCorrect && <View style={styles.radioInner} />}
-                </View>
-                <Text style={[styles.choiceText, isCorrect && styles.choiceTextCorrect]}>
+                {isCorrect && <Ionicons name="checkmark" size={18} color={colors.success.text} />}
+                <Text style={[styles.trueFalseText, isCorrect && styles.trueFalseTextCorrect]}>
                   {value ? 'Vrai' : 'Faux'}
                 </Text>
               </Pressable>
@@ -489,199 +508,211 @@ function QuestionCard({
           })}
         </View>
       )}
-
-    </View>
+    </GlassCard>
   );
 }
 
+const CHOICE_HEIGHT = 52;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   content: {
-    padding: 24,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
     paddingBottom: 48,
-    gap: 4,
+    gap: spacing.lg,
   },
-  back: {
-    color: COLORS.primary,
-    fontSize: 16,
-    marginBottom: 12,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  titleInput: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    padding: 0,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#555555',
-    marginBottom: 12,
+    ...type.title,
+    color: colors.text,
   },
   body: {
-    fontSize: 15,
-    color: '#333333',
+    ...type.body,
+    color: colors.textSecondary,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  summary: {
+    padding: 18,
+    gap: spacing.md,
+    borderRadius: 26,
+    backgroundColor: colors.surfaceGlassStrong,
+    boxShadow: shadows.panel,
+  },
+  titleInput: {
+    ...type.inputTitle,
+  },
+  instructionsField: {
+    marginTop: spacing.xs,
   },
   instructionsInput: {
-    fontSize: 15,
-    color: '#333333',
-    marginBottom: 16,
-    padding: 0,
-  },
-  lessonModeBox: {
-    backgroundColor: '#EEF1FF',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-  },
-  lessonModeText: {
-    color: '#3B3F73',
-    fontSize: 14,
-  },
-  warningBox: {
-    backgroundColor: '#FFF6DF',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-    gap: 4,
-  },
-  warningText: {
-    color: '#7A5B00',
-    fontSize: 14,
-  },
-  questionList: {
-    gap: 14,
-    marginBottom: 24,
+    ...type.input,
+    minHeight: 74,
   },
   card: {
-    backgroundColor: '#F7F7F8',
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
+    padding: 18,
+    gap: spacing.md,
+    backgroundColor: colors.surfaceGlassStrong,
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  cardLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#777777',
-    textTransform: 'uppercase',
+  cardHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  deleteText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#C0392B',
+  numberBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.badge,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numberText: {
+    ...type.labelStrong,
+    color: colors.textOnBrand,
+  },
+  typeLabel: {
+    ...type.metaStrong,
+    color: colors.textSecondary,
+  },
+  deleteButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.tile,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.danger.background,
   },
   questionInput: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    padding: 0,
+    ...type.bodyEmphasis,
+    minHeight: 60,
+    borderRadius: radii.field,
   },
   gapHint: {
-    fontSize: 13,
-    color: '#555555',
-    marginTop: 2,
+    ...type.meta,
+    lineHeight: 19,
+    color: colors.textSecondary,
   },
   choiceList: {
-    gap: 8,
+    gap: 10,
   },
   choiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 8,
+    minHeight: CHOICE_HEIGHT,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+    borderRadius: radii.field,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   choiceCorrect: {
-    borderColor: '#2E9E5B',
-    backgroundColor: '#EAF7EF',
-  },
-  radioTouchArea: {
-    padding: 2,
+    borderWidth: 1.5,
+    borderColor: colors.success.border,
+    backgroundColor: colors.success.background,
   },
   radioOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#AAAAAA',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#2E9E5B',
+    borderColor: colors.success.border,
   },
   radioInner: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#2E9E5B',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.success.border,
   },
   choiceInput: {
+    ...type.input,
     flex: 1,
-    fontSize: 15,
-    color: '#333333',
-    padding: 0,
+    minWidth: 0,
+    minHeight: 40,
+    color: colors.text,
   },
-  choiceText: {
-    fontSize: 15,
-    color: '#333333',
+  choiceInputCorrect: {
+    fontFamily: type.bodyStrong.fontFamily,
   },
-  choiceTextCorrect: {
-    color: '#1F6E40',
-    fontWeight: '600',
+  correctTag: {
+    ...type.metaStrong,
+    fontSize: 12,
+    color: colors.success.text,
+  },
+  removeChoice: {
+    width: 40,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addChoice: {
+    alignSelf: 'flex-start',
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
   },
   addChoiceText: {
-    color: COLORS.primary,
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 2,
+    ...type.labelStrong,
+    color: colors.actionText,
+  },
+  trueFalseRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  trueFalseOption: {
+    flex: 1,
+    height: CHOICE_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderRadius: radii.field,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  trueFalseText: {
+    ...type.body,
+    fontFamily: type.label.fontFamily,
+    color: colors.text,
+  },
+  trueFalseTextCorrect: {
+    fontFamily: type.bodyStrong.fontFamily,
+    color: colors.success.text,
   },
   addQuestionButton: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderStyle: 'dashed',
-    borderRadius: 10,
-    paddingVertical: 12,
+    minHeight: sizes.secondaryButton,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderRadius: radii.button,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.borderDashed,
+    backgroundColor: colors.surfaceGlassFaint,
+  },
+  footerError: {
+    marginBottom: spacing.md,
   },
   addQuestionText: {
-    color: COLORS.primary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  error: {
-    color: '#B42318',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    ...type.buttonSecondary,
+    color: colors.actionText,
   },
 });

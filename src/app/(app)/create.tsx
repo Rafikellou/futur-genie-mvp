@@ -1,8 +1,13 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { BackButton } from '@/components/BackButton';
+import { GlassCard } from '@/components/GlassCard';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { StepBar, StepLabel } from '@/components/StepIndicator';
+import { StickyFooter, useStickyFooterSpace } from '@/components/StickyFooter';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { OptionChips } from '@/features/exercise-creation/components/OptionChips';
 import { Grade, GRADES } from '@shared/domain/grade';
@@ -12,7 +17,7 @@ import {
   QUESTION_COUNT_OPTIONS,
   QuizType,
 } from '@shared/domain/exercise';
-import { COLORS } from '@/theme/colors';
+import { colors, spacing, type } from '@/theme';
 
 const QUESTION_COUNT_CHOICES = QUESTION_COUNT_OPTIONS.map((count) => ({
   value: count,
@@ -28,6 +33,7 @@ export default function CreateExerciseScreen() {
   const [subject, setSubject] = useState<Subject | null>(null);
   const [quizType, setQuizType] = useState<QuizType | null>(null);
   const [questionCount, setQuestionCount] = useState<number | null>(null);
+  const footerSpace = useStickyFooterSpace();
 
   const canContinue = Boolean(grade && subject && quizType && questionCount);
 
@@ -47,111 +53,98 @@ export default function CreateExerciseScreen() {
   return (
     <Screen>
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: footerSpace }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Pressable onPress={() => router.back()} accessibilityRole="button">
-          <Text style={styles.back}>‹ Retour</Text>
-        </Pressable>
+        <View style={styles.topRow}>
+          <BackButton onPress={() => router.back()} />
+          <StepLabel step={1} />
+        </View>
+        <StepBar step={1} />
 
-        <Text style={styles.title}>Créer un devoir</Text>
+        <Text style={styles.title} accessibilityRole="header">
+          Créer un devoir
+        </Text>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Niveau</Text>
+        <ChoiceGroup label="Niveau">
           <OptionChips
             options={GRADES}
             selected={grade}
             onSelect={setGrade}
             accessibilityLabelPrefix="Niveau"
           />
-        </View>
+        </ChoiceGroup>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Matière</Text>
+        <ChoiceGroup label="Matière">
           <OptionChips
             options={SUBJECTS}
             selected={subject}
             onSelect={setSubject}
             accessibilityLabelPrefix="Matière"
           />
-        </View>
+        </ChoiceGroup>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Type d&apos;exercice</Text>
+        <ChoiceGroup label="Type d’exercice">
           <OptionChips
             options={EXERCISE_TYPES}
             selected={quizType}
             onSelect={setQuizType}
             accessibilityLabelPrefix="Type d'exercice"
           />
-        </View>
+        </ChoiceGroup>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Nombre de questions</Text>
+        <ChoiceGroup label="Nombre de questions">
           <OptionChips
             options={QUESTION_COUNT_CHOICES}
             selected={questionCount}
             onSelect={setQuestionCount}
             accessibilityLabelPrefix="Nombre de questions"
           />
-        </View>
+        </ChoiceGroup>
+      </ScrollView>
 
-        <Pressable
-          style={[styles.button, !canContinue && styles.buttonDisabled]}
+      <StickyFooter>
+        <PrimaryButton
+          label="Continuer"
+          trailingIcon="arrow-forward"
           onPress={handleContinue}
           disabled={!canContinue}
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonText}>Continuer</Text>
-        </Pressable>
-      </ScrollView>
+        />
+      </StickyFooter>
     </Screen>
   );
 }
 
+function ChoiceGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <GlassCard style={styles.group}>
+      <Text style={styles.groupLabel}>{label}</Text>
+      {children}
+    </GlassCard>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   content: {
-    padding: 24,
-    paddingBottom: 48,
-    gap: 4,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    gap: 18,
   },
-  back: {
-    color: COLORS.primary,
-    fontSize: 16,
-    marginBottom: 12,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 20,
+    ...type.title,
+    color: colors.text,
   },
-  section: {
-    gap: 10,
-    marginBottom: 24,
+  group: {
+    padding: 18,
+    gap: spacing.md,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  groupLabel: {
+    ...type.labelStrong,
+    color: colors.text,
   },
 });

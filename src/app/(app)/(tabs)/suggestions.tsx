@@ -1,25 +1,28 @@
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
+import { GlassCard } from '@/components/GlassCard';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { SecondaryButton } from '@/components/SecondaryButton';
+import { useTabBarSpace } from '@/components/TabBar';
+import { TextField } from '@/components/TextField';
 import { OptionChips } from '@/features/exercise-creation/components/OptionChips';
 import {
   submitSuggestion,
   type SuggestionCategory,
 } from '@/features/feedback/submitSuggestion';
-import { COLORS } from '@/theme/colors';
+import { colors, gradients, radii, shadows, spacing, type } from '@/theme';
 
 const CATEGORIES: { value: SuggestionCategory; label: string }[] = [
   { value: 'feature', label: 'Idée de fonctionnalité' },
@@ -32,6 +35,7 @@ export default function SuggestionsScreen() {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const tabBarSpace = useTabBarSpace();
 
   const canSend = message.trim().length >= 5 && !isSending;
 
@@ -57,77 +61,78 @@ export default function SuggestionsScreen() {
 
   if (isSent) {
     return (
-      <Screen style={styles.container}>
-        <View style={styles.confirmation}>
-          <Ionicons name="heart" size={40} color={COLORS.primary} />
-          <Text style={styles.title}>Merci !</Text>
-          <Text style={styles.body}>
+      <Screen>
+        <View style={[styles.confirmation, { paddingBottom: tabBarSpace }]}>
+          <LinearGradient {...gradients.warmHero} style={styles.thanksTile}>
+            <Ionicons name="heart" size={48} color={colors.textOnBrand} />
+          </LinearGradient>
+          <Text style={styles.thanksTitle} accessibilityRole="header">
+            Merci !
+          </Text>
+          <Text style={styles.thanksBody}>
             Votre message nous aide à décider quoi améliorer en priorité.
           </Text>
-          <Pressable
-            style={styles.secondaryButton}
+          <SecondaryButton
+            label="Envoyer une autre idée"
             onPress={() => setIsSent(false)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.secondaryButtonText}>Envoyer une autre idée</Text>
-          </Pressable>
+            style={styles.anotherButton}
+          />
         </View>
       </Screen>
     );
   }
 
   return (
-    <Screen style={styles.container}>
+    <Screen>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Vos idées</Text>
+          <View style={styles.header}>
+            <LinearGradient {...gradients.warm} style={styles.headerTile}>
+              <Ionicons name="bulb-outline" size={24} color={colors.textOnBrand} />
+            </LinearGradient>
+            <Text style={styles.title} accessibilityRole="header">
+              Vos idées
+            </Text>
+          </View>
           <Text style={styles.body}>
             Futur Génie débute. Dites-nous ce qui vous aiderait le plus : une
             fonctionnalité qui manque, quelque chose de pénible, une idée
             d&apos;amélioration.
           </Text>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>De quoi s&apos;agit-il ?</Text>
-            <OptionChips
-              options={CATEGORIES}
-              selected={category}
-              onSelect={setCategory}
-              accessibilityLabelPrefix="Catégorie"
-            />
-          </View>
+          <GlassCard style={styles.formCard}>
+            <View style={styles.field}>
+              <Text style={styles.label}>De quoi s’agit-il ?</Text>
+              <OptionChips
+                options={CATEGORIES}
+                selected={category}
+                onSelect={setCategory}
+                accessibilityLabelPrefix="Catégorie"
+              />
+            </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Votre message</Text>
-            <TextInput
-              style={styles.input}
+            <TextField
+              label="Votre message"
               value={message}
               onChangeText={setMessage}
               multiline
-              textAlignVertical="top"
               placeholder="Écrivez ici…"
-              accessibilityLabel="Votre message"
+              inputStyle={styles.messageInput}
             />
-          </View>
 
-          <Pressable
-            style={[styles.button, !canSend && styles.buttonDisabled]}
-            onPress={handleSend}
-            disabled={!canSend}
-            accessibilityRole="button"
-          >
-            {isSending ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.buttonText}>Envoyer</Text>
-            )}
-          </Pressable>
+            <PrimaryButton
+              label="Envoyer"
+              onPress={handleSend}
+              disabled={!canSend && !isSending}
+              loading={isSending}
+            />
+          </GlassCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -135,77 +140,84 @@ export default function SuggestionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-  },
   flex: {
     flex: 1,
   },
   content: {
-    paddingBottom: 32,
-    gap: 4,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    gap: 18,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  headerTile: {
+    width: 48,
+    height: 48,
+    borderRadius: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: shadows.warmTile,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
+    ...type.title,
+    color: colors.text,
   },
   body: {
+    ...type.body,
     fontSize: 15,
-    color: '#444444',
-    lineHeight: 21,
+    lineHeight: 22,
+    color: colors.textBody,
   },
-  section: {
+  formCard: {
+    padding: spacing.xl,
+    gap: 18,
+    borderRadius: 26,
+    boxShadow: shadows.panel,
+  },
+  field: {
     gap: 10,
-    marginTop: 24,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
+    ...type.labelStrong,
+    color: colors.text,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D0D5DD',
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 16,
-    minHeight: 140,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 28,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  messageInput: {
+    minHeight: 150,
+    borderRadius: radii.row,
   },
   confirmation: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: spacing.lg,
+    paddingHorizontal: 30,
   },
-  secondaryButton: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+  thanksTile: {
+    width: 104,
+    height: 104,
+    borderRadius: 34,
     alignItems: 'center',
-    marginTop: 12,
+    justifyContent: 'center',
+    boxShadow: shadows.warmHero,
   },
-  secondaryButtonText: {
-    color: COLORS.primary,
-    fontSize: 15,
-    fontWeight: '600',
+  thanksTitle: {
+    ...type.display,
+    fontSize: 34,
+    lineHeight: 38,
+    color: colors.text,
+    marginTop: spacing.sm,
+  },
+  thanksBody: {
+    ...type.body,
+    lineHeight: 24,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  anotherButton: {
+    marginTop: 10,
+    minHeight: 52,
   },
 });

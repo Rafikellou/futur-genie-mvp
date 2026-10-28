@@ -24,7 +24,7 @@ export default function PrivacyScreen() {
           <Text style={styles.title} accessibilityRole="header">
             Politique de confidentialité
           </Text>
-          <Text style={styles.updated}>Dernière mise à jour : 28 août 2026</Text>
+          <Text style={styles.updated}>Dernière mise à jour : 28 octobre 2026</Text>
         </View>
 
         <Text style={styles.paragraph}>
@@ -108,7 +108,7 @@ export default function PrivacyScreen() {
           </Bullet>
           <Bullet>
             Pour toute question sur vos données, vous pouvez nous écrire à{' '}
-            <Text style={styles.emphasis}>contact@futurgenie.com</Text>.
+            <Text style={styles.emphasis}>contact@futurgenie.fr</Text>.
           </Bullet>
         </Section>
       </ScrollView>

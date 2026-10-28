@@ -2,6 +2,12 @@
   "buildCommand": "npm run build:web",
   "outputDirectory": "dist",
   "routes": [
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "futur-genie-mvp-murex.vercel.app" }],
+      "status": 308,
+      "headers": { "Location": "https://app.futurgenie.fr/$1" }
+    },
     { "src": "/q/[^/]+$", "dest": "/q/shell.html" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/$1.html" }

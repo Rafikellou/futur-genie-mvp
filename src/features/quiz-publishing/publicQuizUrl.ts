@@ -1,10 +1,9 @@
 import { Platform } from 'react-native';
 
-// No production web domain has been chosen/deployed yet — that is
-// Milestone 10 ("production environment configuration", CLAUDE.md §15).
-// `EXPO_PUBLIC_APP_URL` lets a developer point this at wherever the web
-// build is actually reachable (e.g. a preview deployment) until then; it is
-// safe to expose (no secret — same reasoning as EXPO_PUBLIC_SUPABASE_URL).
+// `EXPO_PUBLIC_APP_URL` is where the web build is reachable — production
+// is https://app.futurgenie.fr, set in the EAS "production" environment and
+// baked in at build time, so changing it needs a new native build. Safe to
+// expose (no secret — same reasoning as EXPO_PUBLIC_SUPABASE_URL).
 const CONFIGURED_APP_URL = process.env.EXPO_PUBLIC_APP_URL;
 
 // Builds the full public URL for a published quiz's slug. On web, the

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,6 +25,11 @@ import { EmptyState } from '@/components/EmptyState';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useAboveTabBarOffset, useTabBarSpace } from '@/components/TabBar';
+import {
+  confirmDeleteQuizzes,
+  DELETE_ERROR_MESSAGE,
+  deleteQuizzes,
+} from '@/features/quiz-publishing/deleteQuizzes';
 import { composeShareText } from '@/features/quiz-sharing/composeShareText';
 import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
 import {
@@ -109,7 +115,7 @@ type LoadState =
   | { status: 'ready'; rows: QuizRow[] };
 
 // Room left under the list for the selection bar in select mode.
-const FOOTER_SPACE = 96;
+const FOOTER_SPACE = 140;
 
 export default function MyQuizzesScreen() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
@@ -120,9 +126,15 @@ export default function MyQuizzesScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isComposeOpen, setIsComposeOpen] = useState(false);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setIsRefreshing(true);
-    else setState({ status: 'loading' });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFailed, setDeleteFailed] = useState(false);
+  const hasLoaded = useRef(false);
+
+  // 'silent' refreshes on return to the tab (e.g. after deleting a quiz from
+  // its results screen) without flashing the loading state over the list.
+  const load = useCallback(async (mode: 'initial' | 'pull' | 'silent' = 'initial') => {
+    if (mode === 'pull') setIsRefreshing(true);
+    else if (mode === 'initial') setState({ status: 'loading' });
 
     // RLS (Milestone 7) already restricts this to the signed-in teacher's own
     // rows — no explicit teacher_id filter needed.
@@ -134,16 +146,27 @@ export default function MyQuizzesScreen() {
       .order('created_at', { ascending: false });
 
     if (error || !data) {
-      setState({ status: 'error' });
+      // A failed background refresh keeps the list already on screen.
+      if (mode !== 'silent') setState({ status: 'error' });
     } else {
+      hasLoaded.current = true;
       setState({ status: 'ready', rows: data as QuizRow[] });
+      // Drop selected ids that no longer exist (deleted meanwhile), so the
+      // counts and a retried delete only cover quizzes still on screen.
+      const existing = new Set(data.map((row) => row.id));
+      setSelectedIds((current) => {
+        const next = new Set([...current].filter((id) => existing.has(id)));
+        return next.size === current.size ? current : next;
+      });
     }
     setIsRefreshing(false);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load(hasLoaded.current ? 'silent' : 'initial');
+    }, [load])
+  );
 
   const exitSelectMode = useCallback(() => {
     setIsSelectMode(false);
@@ -159,18 +182,34 @@ export default function MyQuizzesScreen() {
     });
   }, []);
 
+  // Only published quizzes have a link to share; drafts can still be
+  // selected, but only for deletion.
   const selectedQuizzes = useMemo(() => {
     if (state.status !== 'ready') return [];
     return state.rows.filter((row) => selectedIds.has(row.id) && row.public_slug);
   }, [state, selectedIds]);
+  const hasUnshareableSelected = selectedQuizzes.length < selectedIds.size;
 
   const sections = useMemo(
     () => (state.status === 'ready' ? groupByDay(state.rows) : []),
     [state]
   );
 
-  const canSelect =
-    state.status === 'ready' && state.rows.filter((r) => r.status === 'published').length > 1;
+  const canSelect = state.status === 'ready' && state.rows.length > 0;
+
+  function handleDeleteSelected() {
+    const ids = [...selectedIds];
+    confirmDeleteQuizzes(ids.length, async () => {
+      setIsDeleting(true);
+      setDeleteFailed(false);
+      const ok = await deleteQuizzes(ids);
+      setIsDeleting(false);
+      if (ok) exitSelectMode();
+      else setDeleteFailed(true);
+      // Reload either way: a partial failure may still have removed some rows.
+      load('silent');
+    });
+  }
 
   return (
     <Screen style={styles.container}>
@@ -184,19 +223,25 @@ export default function MyQuizzesScreen() {
             accessibilityRole="button"
             style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
           >
-            {!isSelectMode && <Ionicons name="share-outline" size={16} color={colors.actionText} />}
-            <Text style={styles.headerButtonText}>
-              {isSelectMode ? 'Annuler' : 'Partager plusieurs'}
-            </Text>
+            {!isSelectMode && (
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.actionText} />
+            )}
+            <Text style={styles.headerButtonText}>{isSelectMode ? 'Annuler' : 'Sélectionner'}</Text>
           </Pressable>
         )}
       </View>
+
+      {deleteFailed && (
+        <View style={styles.selectHint}>
+          <Banner tone="error" messages={DELETE_ERROR_MESSAGE} />
+        </View>
+      )}
 
       {isSelectMode && (
         <View style={styles.selectHint}>
           <Banner
             tone="info"
-            messages="Cochez les devoirs à envoyer, puis partagez-les en un seul message."
+            messages="Cochez des devoirs pour les partager en un seul message ou les supprimer."
           />
         </View>
       )}
@@ -239,7 +284,7 @@ export default function MyQuizzesScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
-              onRefresh={() => load(true)}
+              onRefresh={() => load('pull')}
               tintColor={colors.brandViolet}
               colors={[colors.brandViolet]}
             />
@@ -265,15 +310,48 @@ export default function MyQuizzesScreen() {
 
       {isSelectMode && selectedIds.size > 0 && (
         <View style={[styles.selectionBar, { bottom: selectionBarBottom }]}>
-          <Text style={styles.selectionCount}>
-            {selectedQuizzes.length} sélectionné{selectedQuizzes.length > 1 ? 's' : ''}
-          </Text>
-          <PrimaryButton
-            label="Partager la sélection"
-            icon="share-outline"
-            onPress={() => setIsComposeOpen(true)}
-            style={styles.selectionButton}
-          />
+          <View style={styles.selectionInfo}>
+            <Text style={styles.selectionCount}>
+              {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+            </Text>
+            {hasUnshareableSelected && (
+              <Text style={styles.selectionNote}>
+                {selectedIds.size - selectedQuizzes.length > 1
+                  ? 'Les brouillons ne seront pas partagés'
+                  : 'Le brouillon ne sera pas partagé'}
+              </Text>
+            )}
+          </View>
+          <View style={styles.selectionActions}>
+            <PrimaryButton
+              label={`Partager (${selectedQuizzes.length})`}
+              icon="share-outline"
+              onPress={() => setIsComposeOpen(true)}
+              disabled={selectedQuizzes.length === 0 || isDeleting}
+              style={styles.selectionButton}
+            />
+            <Pressable
+              onPress={handleDeleteSelected}
+              disabled={isDeleting}
+              accessibilityRole="button"
+              accessibilityLabel={`Supprimer ${selectedIds.size} devoir${selectedIds.size > 1 ? 's' : ''}`}
+              accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
+              style={({ pressed }) => [
+                styles.selectionButton,
+                styles.deleteButton,
+                (pressed || isDeleting) && styles.pressed,
+              ]}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color={colors.dangerOnDark} />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={18} color={colors.dangerOnDark} />
+                  <Text style={styles.deleteButtonText}>Supprimer ({selectedIds.size})</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -298,11 +376,18 @@ function QuizRowItem({
   onToggleSelected: () => void;
 }) {
   const statusLabel = row.status === 'published' ? 'Publié' : row.status === 'draft' ? 'Brouillon' : 'Archivé';
-  const isSelectable = isSelectMode && row.status === 'published';
   const gradeLabel = GRADES.find((g) => g.value === row.grade)?.label ?? row.grade;
   const subjectLabel = SUBJECTS.find((s) => s.value === row.subject)?.label ?? row.subject;
   const questionCount = Array.isArray(row.questions) ? row.questions.length : null;
   const subjectStyle = subjectStyles[row.subject] ?? subjectStyles.autre;
+
+  const statusBadge = (
+    <View style={[styles.statusBadge, row.status === 'published' && styles.statusBadgePublished]}>
+      <Text style={[styles.statusText, row.status === 'published' && styles.statusTextPublished]}>
+        {statusLabel}
+      </Text>
+    </View>
+  );
 
   const content = isSelectMode ? (
     <View style={[styles.row, isSelected && styles.rowSelected]}>
@@ -316,9 +401,12 @@ function QuizRowItem({
       </View>
       <View style={styles.rowText}>
         <Text style={styles.rowTitle}>{row.title}</Text>
-        <Text style={styles.rowMeta}>
-          {statusLabel} · {gradeLabel} · {subjectLabel}
-        </Text>
+        <View style={styles.rowMetaLine}>
+          {statusBadge}
+          <Text style={styles.rowMeta} numberOfLines={1}>
+            {gradeLabel} · {subjectLabel}
+          </Text>
+        </View>
       </View>
     </View>
   ) : (
@@ -334,15 +422,7 @@ function QuizRowItem({
       <View style={styles.rowText}>
         <Text style={styles.rowTitle}>{row.title}</Text>
         <View style={styles.rowMetaLine}>
-          <View
-            style={[styles.statusBadge, row.status === 'published' && styles.statusBadgePublished]}
-          >
-            <Text
-              style={[styles.statusText, row.status === 'published' && styles.statusTextPublished]}
-            >
-              {statusLabel}
-            </Text>
-          </View>
+          {statusBadge}
           <Text style={styles.rowMeta} numberOfLines={1}>
             {gradeLabel}
             {questionCount != null
@@ -358,11 +438,6 @@ function QuizRowItem({
   );
 
   if (isSelectMode) {
-    if (!isSelectable) {
-      // A draft has no public link, so it can't be part of a shared
-      // message — same "display only" treatment as outside select mode.
-      return <View style={styles.rowDisabled}>{content}</View>;
-    }
     return (
       <Pressable
         onPress={onToggleSelected}
@@ -655,24 +730,53 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: sizes.tabBarMargin,
     right: sizes.tabBarMargin,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: 10,
-    paddingLeft: 18,
-    paddingRight: 10,
+    gap: 10,
+    padding: spacing.md,
     borderRadius: radii.card,
     backgroundColor: colors.text,
     boxShadow: shadows.selectionBar,
   },
+  selectionInfo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: 6,
+  },
   selectionCount: {
     ...type.bodyStrong,
-    flex: 1,
     color: colors.textOnBrand,
   },
+  selectionNote: {
+    ...type.meta,
+    fontSize: 12,
+    flexShrink: 1,
+    textAlign: 'right',
+    color: colors.textOnDarkMuted,
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
   selectionButton: {
+    flex: 1,
     minHeight: sizes.compactButton,
     borderRadius: radii.input,
+    paddingHorizontal: spacing.sm,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.onDarkBorder,
+    backgroundColor: colors.onDarkFill,
+  },
+  deleteButtonText: {
+    ...type.buttonSecondary,
+    fontSize: 15,
+    color: colors.dangerOnDark,
   },
   backdrop: {
     flex: 1,

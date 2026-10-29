@@ -2,14 +2,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
+import { Banner } from '@/components/Banner';
 import { GlassCard } from '@/components/GlassCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Screen } from '@/components/Screen';
+import {
+  confirmDeleteQuizzes,
+  DELETE_ERROR_MESSAGE,
+  deleteQuizzes,
+} from '@/features/quiz-publishing/deleteQuizzes';
 import { supabase } from '@shared/supabase/client';
-import { colors, fonts, gradients, radii, spacing, type } from '@/theme';
+import { colors, fonts, gradients, radii, sizes, spacing, type } from '@/theme';
 
 // Per-quiz results screen (Milestone 9, CLAUDE.md §5): who answered a given
 // published quiz, and how they scored — the teacher's only view into student
@@ -31,6 +37,8 @@ type LoadState =
 export default function QuizResultsScreen() {
   const { quizId, title } = useLocalSearchParams<{ quizId: string; title?: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFailed, setDeleteFailed] = useState(false);
 
   const load = useCallback(async () => {
     setState({ status: 'loading' });
@@ -55,6 +63,43 @@ export default function QuizResultsScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  function handleDelete() {
+    confirmDeleteQuizzes(1, async () => {
+      setIsDeleting(true);
+      setDeleteFailed(false);
+      const ok = await deleteQuizzes([quizId]);
+      if (ok) {
+        // Back to the tab the teacher came from (Accueil or Mes devoirs);
+        // both reload on focus, so the deleted quiz is gone from the list.
+        // The published-quiz screen underneath refers to it, so skip it too.
+        router.dismissAll();
+        return;
+      }
+      setIsDeleting(false);
+      setDeleteFailed(true);
+    });
+  }
+
+  const deleteAction = (
+    <View style={styles.footer}>
+      {deleteFailed && <Banner tone="error" messages={DELETE_ERROR_MESSAGE} />}
+      <Pressable
+        onPress={handleDelete}
+        disabled={isDeleting}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
+        style={({ pressed }) => [styles.deleteButton, (pressed || isDeleting) && styles.pressed]}
+      >
+        {isDeleting ? (
+          <ActivityIndicator color={colors.danger.text} />
+        ) : (
+          <Ionicons name="trash-outline" size={18} color={colors.danger.text} />
+        )}
+        <Text style={styles.deleteText}>Supprimer ce devoir</Text>
+      </Pressable>
+    </View>
+  );
 
   const header = (
     <View style={styles.header}>
@@ -88,6 +133,7 @@ export default function QuizResultsScreen() {
           data={state.rows}
           keyExtractor={(row) => row.id}
           ListHeaderComponent={header}
+          ListFooterComponent={deleteAction}
           contentContainerStyle={styles.content}
           renderItem={({ item }) => <SubmissionRowItem row={item} />}
           showsVerticalScrollIndicator={false}
@@ -118,6 +164,8 @@ export default function QuizResultsScreen() {
               body="Les élèves apparaîtront ici dès qu’ils auront fait le devoir."
             />
           )}
+
+          {state.status === 'ready' && deleteAction}
         </View>
       )}
     </Screen>
@@ -262,6 +310,26 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 3,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  footer: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: sizes.compactButton,
+    paddingHorizontal: spacing.lg,
+  },
+  deleteText: {
+    ...type.buttonSecondary,
+    fontSize: 15,
+    color: colors.danger.text,
   },
   score: {
     fontFamily: fonts.heading,

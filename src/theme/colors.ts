@@ -59,6 +59,11 @@ export const colors = {
   onBrandAvatarBorder: 'rgba(255,255,255,0.4)',
   onBrandBubble: 'rgba(255,255,255,0.15)',
   onBrandWarmBubble: 'rgba(255,160,92,0.35)',
+  // On the dark navy selection bar (Mes devoirs, select mode).
+  textOnDarkMuted: '#C9CCE6',
+  onDarkFill: 'rgba(255,255,255,0.1)',
+  onDarkBorder: 'rgba(255,255,255,0.22)',
+  dangerOnDark: '#FFB4AE',
 
   success: { background: '#E5F5EC', border: '#2E9E5B', text: '#1C6B40' },
   danger: { background: '#FDECEC', text: '#A3251F', solid: '#C2362F' },

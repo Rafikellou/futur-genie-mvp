@@ -269,8 +269,8 @@ export default function MyQuizzesScreen() {
           <EmptyState
             variant="info"
             icon="document-text-outline"
-            title="Aucun devoir pour l’instant"
-            body="Vous n’avez pas encore créé de devoir."
+            title="Prêt pour votre premier devoir ?"
+            body="Créez-le en une minute à partir d’une photo de leçon."
             action={{ label: 'Créer un devoir', onPress: () => router.push('/create'), primary: true }}
           />
         </View>

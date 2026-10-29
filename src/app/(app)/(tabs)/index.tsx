@@ -15,7 +15,7 @@ import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { useTabBarSpace } from '@/components/TabBar';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { colors, gradients, radii, shadows, sizes, spacing, type } from '@/theme';
+import { colors, fonts, gradients, radii, shadows, sizes, spacing, type } from '@/theme';
 
 type RecentQuiz = {
   id: string;
@@ -90,6 +90,17 @@ const SUBJECT_ICONS: Record<Subject, ComponentProps<typeof Ionicons>['name']> = 
   autre: 'document-text-outline',
 };
 
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+// First-launch home (docs/design AccueilPremierDevoir.dc.html): the golden
+// path in four steps, shown until the teacher has created a first quiz.
+const FIRST_QUIZ_STEPS: { label: string; icon: IconName; tint: keyof typeof colors.tint }[] = [
+  { label: 'Photographiez la leçon', icon: 'camera-outline', tint: 'blue' },
+  { label: 'Vérifiez les questions', icon: 'checkmark-done-outline', tint: 'violet' },
+  { label: 'Partagez le lien aux élèves', icon: 'share-outline', tint: 'pink' },
+  { label: 'Suivez leurs réponses', icon: 'people-outline', tint: 'orange' },
+];
+
 function formatToday(): string {
   const formatted = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -111,6 +122,9 @@ export default function HomeScreen() {
   const classLabel = GRADES.find((g) => g.value === profile?.classGrade)?.label;
   const home = useHomeData(session?.user.id);
   const tabBarSpace = useTabBarSpace();
+  // Same count query as the stat pill: zero quizzes means a brand-new
+  // teacher. While loading (or if the count fails) the usual home shows.
+  const isFirstQuiz = home.status === 'ready' && home.total === 0;
 
   return (
     <Screen>
@@ -155,62 +169,113 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <HeroCard>
-          <Text style={styles.date}>{formatToday()}</Text>
-          <Text style={styles.greeting}>
-            Bonjour{'\n'}
-            {greetingName}
-          </Text>
-
-          {home.status === 'ready' && home.total > 0 && (
-            // Hidden for a brand-new teacher with zero quizzes yet — "0
-            // devoirs créés" on a first visit reads as empty, not encouraging.
-            <View style={styles.statPill}>
-              <Text style={styles.statValue}>{home.total}</Text>
-              <View>
-                <Text style={styles.statLabel}>
-                  {home.total > 1 ? 'devoirs créés' : 'devoir créé'}
-                </Text>
-                {classLabel && <Text style={styles.statMeta}>Classe de {classLabel}</Text>}
-              </View>
-            </View>
-          )}
-        </HeroCard>
-
-        <View style={styles.actions}>
-          <PrimaryButton
-            label="Créer un devoir"
-            icon="camera-outline"
-            onPress={() => router.push('/create')}
-          />
-          <SecondaryButton
-            label="Mes devoirs"
-            icon="document-text-outline"
-            onPress={() => router.navigate('/my-quizzes')}
-          />
-        </View>
-
-        {home.status === 'ready' && home.recent.length > 0 && (
-          <View style={styles.recent}>
-            <View style={styles.recentHeader}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">
-                Derniers devoirs
+        {isFirstQuiz ? (
+          <FirstQuizHome greetingName={greetingName} />
+        ) : (
+          <>
+            <HeroCard>
+              <Text style={styles.date}>{formatToday()}</Text>
+              <Text style={styles.greeting}>
+                Bonjour{'\n'}
+                {greetingName}
               </Text>
-              <Pressable
+
+              {home.status === 'ready' && home.total > 0 && (
+                // Hidden for a brand-new teacher with zero quizzes yet — "0
+                // devoirs créés" on a first visit reads as empty, not encouraging.
+                <View style={styles.statPill}>
+                  <Text style={styles.statValue}>{home.total}</Text>
+                  <View>
+                    <Text style={styles.statLabel}>
+                      {home.total > 1 ? 'devoirs créés' : 'devoir créé'}
+                    </Text>
+                    {classLabel && <Text style={styles.statMeta}>Classe de {classLabel}</Text>}
+                  </View>
+                </View>
+              )}
+            </HeroCard>
+
+            <View style={styles.actions}>
+              <PrimaryButton
+                label="Créer un devoir"
+                icon="camera-outline"
+                onPress={() => router.push('/create')}
+              />
+              <SecondaryButton
+                label="Mes devoirs"
+                icon="document-text-outline"
                 onPress={() => router.navigate('/my-quizzes')}
-                accessibilityRole="link"
-                hitSlop={12}
-              >
-                <Text style={styles.seeAll}>Tout voir</Text>
-              </Pressable>
+              />
             </View>
-            {home.recent.map((quiz) => (
-              <RecentQuizRow key={quiz.id} quiz={quiz} />
-            ))}
-          </View>
+
+            {home.status === 'ready' && home.recent.length > 0 && (
+              <View style={styles.recent}>
+                <View style={styles.recentHeader}>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    Derniers devoirs
+                  </Text>
+                  <Pressable
+                    onPress={() => router.navigate('/my-quizzes')}
+                    accessibilityRole="link"
+                    hitSlop={12}
+                  >
+                    <Text style={styles.seeAll}>Tout voir</Text>
+                  </Pressable>
+                </View>
+                {home.recent.map((quiz) => (
+                  <RecentQuizRow key={quiz.id} quiz={quiz} />
+                ))}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+function FirstQuizHome({ greetingName }: { greetingName: string }) {
+  return (
+    <>
+      <HeroCard>
+        <Text style={styles.date}>
+          {formatToday()} · Bonjour {greetingName}
+        </Text>
+        <Text style={styles.firstTitle} accessibilityRole="header">
+          Votre premier devoir en 1 minute
+        </Text>
+      </HeroCard>
+
+      <GlassCard style={styles.steps}>
+        {FIRST_QUIZ_STEPS.map((step, index) => (
+          <View
+            key={step.label}
+            style={[styles.step, index < FIRST_QUIZ_STEPS.length - 1 && styles.stepSeparator]}
+            accessible
+            accessibilityLabel={`Étape ${index + 1} : ${step.label}`}
+          >
+            <View style={[styles.stepIcon, { backgroundColor: colors.tint[step.tint].background }]}>
+              <Ionicons name={step.icon} size={22} color={colors.tint[step.tint].text} />
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>{index + 1}</Text>
+              </View>
+            </View>
+            <Text style={styles.stepLabel}>{step.label}</Text>
+          </View>
+        ))}
+      </GlassCard>
+
+      <View style={styles.firstActions}>
+        <PrimaryButton
+          label="Créer mon premier devoir"
+          icon="camera-outline"
+          onPress={() => router.push('/create')}
+        />
+        <Text style={styles.firstHint}>
+          Pas de manuel sous la main ? Une leçon d’exemple vous attend à l’étape photo.
+        </Text>
+      </View>
+    </>
   );
 }
 
@@ -349,6 +414,65 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.md,
+  },
+  firstTitle: {
+    ...type.title,
+    lineHeight: 32,
+    color: colors.textOnBrand,
+    marginTop: spacing.sm,
+  },
+  steps: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.card,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    minHeight: sizes.listRow,
+  },
+  stepSeparator: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.trackSoft,
+  },
+  stepIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumber: {
+    position: 'absolute',
+    right: -5,
+    top: -5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.text,
+  },
+  stepNumberText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 11,
+    color: colors.textOnBrand,
+  },
+  stepLabel: {
+    ...type.bodyEmphasis,
+    flex: 1,
+    color: colors.text,
+  },
+  firstActions: {
+    gap: spacing.md,
+  },
+  firstHint: {
+    ...type.label,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginHorizontal: spacing.sm,
+    color: colors.textSecondary,
   },
   recent: {
     gap: 10,

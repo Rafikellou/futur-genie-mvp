@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Accueil – premier lancement</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}a{color:#B8205F}a:hover{color:#8E1648}</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 940px; overflow: hidden; background: #F5F6FD; font-family: 'DM Sans', system-ui, sans-serif; color: #141A46">
+  <div aria-hidden="true" style="position: absolute; width: 340px; height: 340px; left: -130px; top: -110px; border-radius: 50%; background: #5B6CFF; opacity: 0.35; filter: blur(80px)"></div>
+  <div aria-hidden="true" style="position: absolute; width: 300px; height: 300px; right: -140px; top: 300px; border-radius: 50%; background: #F0458A; opacity: 0.3; filter: blur(90px)"></div>
+  <div aria-hidden="true" style="position: absolute; width: 220px; height: 220px; right: -20px; bottom: -60px; border-radius: 50%; background: #FFA05C; opacity: 0.35; filter: blur(80px)"></div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 18px; padding: 60px 22px 120px 22px">
+    <header style="display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <img src="/_blob/f471c8dad58ca739e9bd4d7c8ddbf38a" alt="" style="width: 40px; height: 40px; object-fit: contain">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.02em">Futur Génie</span>
+      </div>
+      <button aria-label="Profil" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.95); background: rgba(255,255,255,0.65); display: flex; align-items: center; justify-content: center; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 15px; color: #3140D6; box-shadow: 0 4px 14px rgba(20,26,70,0.08)">CD</button>
+    </header>
+
+    <section style="position: relative; overflow: hidden; border-radius: 30px; padding: 24px; background: linear-gradient(135deg, #3B4CF0 0%, #7B2FE0 52%, #C0267F 100%); box-shadow: 0 18px 40px rgba(59,76,240,0.28); color: #FFFFFF">
+      <div aria-hidden="true" style="position: absolute; width: 190px; height: 190px; right: -60px; top: -70px; border-radius: 50%; background: rgba(255,255,255,0.15)"></div>
+      <div aria-hidden="true" style="position: absolute; width: 130px; height: 130px; right: 30px; bottom: -80px; border-radius: 50%; background: rgba(255,160,92,0.35)"></div>
+      <p style="position: relative; margin: 0; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.92)">Jeudi 29 octobre · Bonjour Mme Dupont</p>
+      <h1 style="position: relative; margin: 8px 0 0 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 30px; line-height: 1.08; letter-spacing: -0.02em">Votre premier devoir en 1 minute</h1>
+    </section>
+
+    <ol style="margin: 0; padding: 8px 16px; list-style: none; border-radius: 26px; background: rgba(255,255,255,0.75); border: 1px solid rgba(255,255,255,0.95); box-shadow: 0 12px 30px rgba(20,26,70,0.06)">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+        <li style="display: flex; align-items: center; gap: 14px; min-height: 60px; border-bottom: {{s.sep}}">
+          <span style="position: relative; flex: none; width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: {{s.bg}}; color: {{s.ink}}">
+            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{s.icon}}"></path></svg>
+            <span aria-hidden="true" style="position: absolute; right: -5px; top: -5px; width: 20px; height: 20px; border-radius: 50%; background: #141A46; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{s.n}}</span>
+          </span>
+          <span style="font-size: 16px; font-weight: 600">{{s.label}}</span>
+        </li>
+      </sc-for>
+    </ol>
+
+    <a href="CreerDevoir.dc.html" style="height: 60px; border-radius: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; background: linear-gradient(90deg, #D9286E 0%, #8B2FE0 100%); color: #FFFFFF; text-decoration: none; font-weight: 600; font-size: 17px; box-shadow: 0 12px 28px rgba(217,40,110,0.3), inset 0 1px 0 rgba(255,255,255,0.3)">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+      Créer mon premier devoir
+    </a>
+    <p style="margin: -4px 8px 0 8px; text-align: center; font-size: 14px; line-height: 1.45; color: #555B80">Pas de manuel sous la main ? Une leçon d’exemple vous attend à l’étape photo.</p>
+  </div>
+
+  <nav aria-label="Navigation principale" style="position: absolute; left: 16px; right: 16px; bottom: 22px; height: 68px; border-radius: 28px; display: flex; align-items: center; justify-content: space-around; padding: 0 8px; background: rgba(255,255,255,0.78); border: 1px solid rgba(255,255,255,0.95); box-shadow: 0 12px 30px rgba(20,26,70,0.14)">
+    <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 6px; height: 46px; padding: 0 16px; border-radius: 23px; background: linear-gradient(90deg, #3B4CF0, #7B2FE0); color: #FFFFFF; text-decoration: none; font-size: 14px; font-weight: 600"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z"></path></svg>Accueil</a>
+    <a href="MesDevoirs.dc.html" aria-label="Mes devoirs" style="width: 46px; height: 46px; border-radius: 23px; display: flex; align-items: center; justify-content: center; color: #555B80"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7z"></path><path d="M14 3v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg></a>
+    <a href="Suggestions.dc.html" aria-label="Suggestions" style="width: 46px; height: 46px; border-radius: 23px; display: flex; align-items: center; justify-content: center; color: #555B80"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"></path></svg></a>
+    <a href="Profil.dc.html" aria-label="Profil" style="width: 46px; height: 46px; border-radius: 23px; display: flex; align-items: center; justify-content: center; color: #555B80"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg></a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":940}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const sep = '1px solid #ECEEF7';
+    return {
+      steps: [
+        { n: '1', label: 'Photographiez la leçon', bg: '#E3E7FF', ink: '#3140D6', sep, icon: 'M4 8h3l2-3h6l2 3h3v11H4z M9 13a3 3 0 1 0 6 0a3 3 0 1 0 -6 0' },
+        { n: '2', label: 'Vérifiez les questions', bg: '#EFE4FF', ink: '#5A21A8', sep, icon: 'M9 6h11 M9 12h11 M9 18h11 M4 6l1 1 2-2 M4 12l1 1 2-2 M4 18l1 1 2-2' },
+        { n: '3', label: 'Partagez le lien aux élèves', bg: '#FBE1EE', ink: '#8E1648', sep, icon: 'M12 3v12 M7 8l5-5 5 5 M5 14v5h14v-5' },
+        { n: '4', label: 'Suivez leurs réponses', bg: '#FFEBDD', ink: '#8A4413', sep: 'none', icon: 'M9 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 1 0 0 7 M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5 M16 4.5a3.5 3.5 0 0 1 0 7 M18 15c2 .6 3.3 2.2 3.8 5' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

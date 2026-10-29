@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet">
 <style>body{margin:0}a{color:#B8205F}a:hover{color:#8E1648}</style>
 </helmet>
-<div style="position: relative; width: 1380px; height: 900px; overflow: hidden; box-sizing: border-box; padding: 44px 50px; background: #F5F6FD; font-family: 'DM Sans', system-ui, sans-serif; color: #141A46">
+<div style="position: relative; width: 1380px; height: 940px; overflow: hidden; box-sizing: border-box; padding: 44px 50px; background: #F5F6FD; font-family: 'DM Sans', system-ui, sans-serif; color: #141A46">
   <div aria-hidden="true" style="position: absolute; width: 520px; height: 520px; right: -160px; top: -200px; border-radius: 50%; background: #5B6CFF; opacity: 0.28; filter: blur(100px)"></div>
   <div aria-hidden="true" style="position: absolute; width: 460px; height: 460px; left: -120px; bottom: -180px; border-radius: 50%; background: #FFA05C; opacity: 0.25; filter: blur(100px)"></div>
 
@@ -25,7 +25,7 @@
       <sc-for list="{{states}}" as="s" hint-placeholder-count="8">
         <div style="display: flex; flex-direction: column; gap: 10px">
           <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #555B80">{{s.where}}</span>
-          <div style="height: 300px; box-sizing: border-box; padding: 24px; border-radius: 28px; background: rgba(255,255,255,0.72); border: 1px solid rgba(255,255,255,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center">
+          <div style="height: 330px; box-sizing: border-box; padding: 22px; border-radius: 28px; background: rgba(255,255,255,0.72); border: 1px solid rgba(255,255,255,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center">
             <sc-if value="{{s.spinner}}" hint-placeholder-val="{{ false }}">
               <div aria-hidden="true" style="width: 56px; height: 56px; border-radius: 50%; box-sizing: border-box; border: 5px solid #E3E6F3; border-top-color: #7B2FE0; border-right-color: #D9286E"></div>
             </sc-if>
@@ -39,6 +39,9 @@
             <sc-if value="{{s.hasAction}}" hint-placeholder-val="{{ true }}">
               <button type="button" style="margin-top: 4px; height: 46px; padding: 0 20px; border-radius: 16px; border: {{s.btnBorder}}; background: {{s.btnBg}}; color: {{s.btnInk}}; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600">{{s.action}}</button>
             </sc-if>
+            <sc-if value="{{s.hasAction2}}" hint-placeholder-val="{{ false }}">
+              <button type="button" style="height: 44px; padding: 0 18px; border-radius: 16px; border: 1px solid #DCE0F2; background: #FFFFFF; color: #3140D6; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600">{{s.action2}}</button>
+            </sc-if>
           </div>
         </div>
       </sc-for>
@@ -46,7 +49,7 @@
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1380,"height":900}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1380,"height":940}}'>
 class Component extends DCLogic {
   renderVals() {
     const ICON = {
@@ -59,12 +62,12 @@ class Component extends DCLogic {
     const warn = { iconBg: '#FFF4E5', iconInk: '#B25E12' };
     const primary = { btnBg: 'linear-gradient(90deg, #D9286E 0%, #8B2FE0 100%)', btnInk: '#FFFFFF', btnBorder: 'none' };
     const secondary = { btnBg: '#FFFFFF', btnInk: '#3140D6', btnBorder: '1px solid #DCE0F2' };
-    const base = { spinner: false, hasIcon: true, hasAction: false };
+    const base = { spinner: false, hasIcon: true, hasAction: false, hasAction2: false };
     return {
       states: [
         { ...base, where: 'Mes devoirs · chargement', spinner: true, hasIcon: false, title: 'Chargement…', body: 'Vos devoirs arrivent.' },
-        { ...base, ...brand, ...primary, where: 'Mes devoirs · vide', icon: ICON.doc, title: 'Aucun devoir pour l’instant', body: 'Vous n’avez pas encore créé de devoir.', hasAction: true, action: 'Créer un devoir' },
-        { ...base, ...brand, where: 'Réponses · vide', icon: ICON.people, title: 'Aucune réponse pour l’instant', body: 'Les élèves apparaîtront ici dès qu’ils auront fait le devoir.' },
+        { ...base, ...brand, ...primary, where: 'Mes devoirs · vide', icon: ICON.doc, title: 'Prêt pour votre premier devoir ?', body: 'Créez-le en une minute à partir d’une photo de leçon.', hasAction: true, action: 'Créer un devoir' },
+        { ...base, ...brand, ...primary, where: 'Réponses · vide', icon: ICON.people, title: 'Pas encore de réponse', body: 'Les réponses de vos élèves apparaîtront ici dès qu’ils auront fait le devoir.', hasAction: true, action: 'Partager le lien', hasAction2: true, action2: 'Tester comme un élève' },
         { ...base, ...warn, ...secondary, where: 'Mes devoirs / Réponses · erreur', icon: ICON.wifi, title: 'Impossible de charger', body: 'Vérifiez votre connexion, puis réessayez.', hasAction: true, action: 'Réessayer' },
         { ...base, ...warn, ...secondary, where: 'Relecture / Publié · introuvable', icon: ICON.search, title: 'Devoir introuvable', body: 'Ce devoir n’est plus disponible. Retournez à l’accueil et réessayez.', hasAction: true, action: 'Retour à l’accueil' },
         { ...base, where: 'Élève · chargement', spinner: true, hasIcon: false, title: 'Chargement du devoir…', body: 'Encore un instant !' },

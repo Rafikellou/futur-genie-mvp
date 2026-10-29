@@ -102,7 +102,7 @@ Custom `tabBar` for `(tabs)/_layout.tsx`: capsule 68 px high, 16 px from the scr
 
 ## 4. Alerts: keep the system ones
 
-All 8 `Alert.alert` calls stay **native iOS/Android alerts**. No custom dialog component. `Fenetres.dc.html` only fixes the wording and button order:
+All 9 `Alert.alert` calls stay **native iOS/Android alerts**. No custom dialog component. `Fenetres.dc.html` only fixes the wording and button order:
 
 | Where | Title | Buttons (in order) |
 |---|---|---|
@@ -114,6 +114,9 @@ All 8 `Alert.alert` calls stay **native iOS/Android alerts**. No custom dialog c
 | quiz-draft, publish check | Devoir incomplet | OK |
 | suggestions, send error | Message non envoyé | Réessayer |
 | profile, delete account | Supprimer votre compte ? | Supprimer mon compte (`destructive`), Annuler |
+| my-quizzes / quiz-results, delete quiz (see §7) | Supprimer ce devoir ? — plural: « Supprimer ces N devoirs ? » | Supprimer (`destructive`), Annuler |
+
+Message for the delete-quiz alert (new): « Le lien ne fonctionnera plus et les réponses des élèves seront effacées. »
 
 Messages are the existing ones in code — keep them.
 
@@ -137,3 +140,56 @@ Messages are the existing ones in code — keep them.
 6. Loading/empty/error states pass + alert wording check.
 
 After each step: TypeScript + lint + tests pass, then the owner sends a phone screenshot to compare with the mockup. Never claim a visual check that didn't happen.
+
+## 7. « Premiers pas » — onboarding for new teachers (added 2026-10-29)
+
+Source brief: `docs/design/brief-premiers-pas.md`. Goal: a new teacher succeeds with a first devoir without help. Guidance lives **inside** the screens — no overlay tour, no coach marks, no dark veil.
+
+### 7.1 New / updated mockups
+
+| Mockup | Route / file | Notes |
+|---|---|---|
+| `AccueilPremierDevoir.dc.html` | `(tabs)/index.tsx` when the teacher has **0 quizzes** | Replaces the count pill and "Derniers devoirs". Hero « Votre premier devoir en 1 minute », 4 illustrated steps, primary « Créer mon premier devoir », discreet line about the example lesson. Uses the existing count query; switch back to `Accueil.dc.html` as soon as count ≥ 1 |
+| `PhotoChoixExemple.dc.html` | `create-photo.tsx` (no photo) | Everything from `PhotoChoix` + an "ou" separator + a secondary card « Essayer avec une leçon d'exemple » (dashed border, lighter than the two main buttons). Subtitle = the lesson matching the chosen grade. If the chosen subject is not Mathématiques, show « Le devoir sera créé en Mathématiques » |
+| `PhotoApercuExemple.dc.html` | `create-photo.tsx` (example chosen) | Example page + dark badge « Leçon d'exemple ». Subject pill switches to « Mathématiques ». Secondary action « Utiliser ma propre photo ». Primary unchanged: « Créer le devoir » |
+| `Astuces.dc.html` | Relecture, Devoir publié, Mes devoirs | One shared `Tip` component (see 7.2) at the top of the content, in the page flow |
+| `DevoirPublie.dc.html` (updated) | `quiz-published.tsx` | New tertiary action « Tester comme un élève » (opens the public student page in the browser) + help line « Votre réponse de test apparaîtra dans les résultats. » |
+| `ReponsesVide.dc.html` (new) + `Etats.dc.html` (updated) | `quiz-results.tsx` empty state | « Pas encore de réponse » + « Partager le lien » (primary) + « Tester comme un élève » (secondary) + « Supprimer ce devoir » text action at the bottom |
+| `Reponses.dc.html` (updated) | `quiz-results.tsx` | « Supprimer ce devoir » danger text action at the bottom of the list |
+| `MesDevoirsSelection.dc.html` (updated) | `my-quizzes.tsx` select mode | Drafts are now selectable. Dark bar: « N sélectionnés » + « Partager (published count) » and « Supprimer (total count) ». Show « Le brouillon ne sera pas partagé » when the selection contains drafts. Mode entry label may stay « Partager plusieurs » or become « Sélectionner » |
+| `Fenetres.dc.html` (updated) | delete-quiz alert | 9th native alert, see §4 |
+| `Etats.dc.html` (updated) | my-quizzes empty | Positive wording: « Prêt pour votre premier devoir ? » / « Créez-le en une minute à partir d'une photo de leçon. » |
+
+### 7.2 `Tip` component (« Astuce »)
+
+- White card, 1 px border `#FFE1CC`, radius 20, shadow `rgba(217,40,110,0.08)` y6 blur16 — visually lighter and warmer than the blue info `Banner`.
+- Left: 32 px square icon (radius 10) with gradient `#FFA05C → #D9286E`, white lightbulb.
+- Small uppercase label « ASTUCE » (`#9A4A12`, 12/700), then 1–2 lines of text (14 px, `#33395F`).
+- Right: 44×44 close button, `accessibilityLabel="Fermer l'astuce"`.
+- Shown **once**: once closed it never comes back. Store the "seen" flags per tip id (local storage per device is acceptable; a profile column if it must follow the teacher across devices — owner to decide).
+- Texts:
+  - Relecture: « Vos élèves ne voient rien tant que vous n'avez pas publié. Touchez une question pour la modifier. »
+  - Devoir publié: « Envoyez ce lien à vos élèves par WhatsApp, ÉcoleDirecte ou e-mail. Ils l'ouvrent dans leur navigateur, sans compte. »
+  - Mes devoirs: « Touchez un devoir publié pour voir les réponses de vos élèves. »
+
+### 7.3 Example lessons
+
+All in Mathématiques, one per grade. They must be **original lesson pages created for Futur Génie** (no scanned textbook pages), bundled as app images:
+
+| Grade | Lesson |
+|---|---|
+| CP | Les nombres jusqu'à 20 : la dizaine |
+| CE1 | Comparer et ranger les nombres jusqu'à 1 000 |
+| CE2 | Mesurer des longueurs : km, m, cm, mm |
+| CM1 | Les fractions |
+| CM2 | Les nombres décimaux |
+
+The example image goes through the exact same generation pipeline as a real photo.
+
+### 7.4 Not only visual — needs backend / product work
+
+- **Delete a quiz** needed no migration: the RLS policy "Teachers can delete their own quizzes" (Milestone 7) already scopes deletes to the owner, and `submissions.quiz_id ... on delete cascade` removes the answers with it. Checked by `supabase/tests/delete_quiz_rls.sql`. App side: `src/features/quiz-publishing/deleteQuizzes.ts`.
+- **Test as a student** creates a real submission (owner accepted: it shows in the results).
+- Tip "seen" persistence (7.2) and the first-launch switch (count = 0) are small app-side state.
+
+All §5 rules still apply (system alerts, positive tone, example link, no new native dependency).

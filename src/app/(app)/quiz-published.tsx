@@ -8,6 +8,7 @@ import { BackButton } from '@/components/BackButton';
 import { EmptyState } from '@/components/EmptyState';
 import { GlassCard } from '@/components/GlassCard';
 import { HeroCard } from '@/components/HeroCard';
+import { Tip } from '@/components/Tip';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
@@ -58,6 +59,11 @@ export default function QuizPublishedScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         {canGoBack && <BackButton onPress={() => router.back()} />}
+
+        <Tip
+          id="quiz-published"
+          text="Envoyez ce lien à vos élèves par WhatsApp, ÉcoleDirecte ou e-mail. Ils l’ouvrent dans leur navigateur, sans compte."
+        />
 
         <HeroCard>
           <View style={styles.badge}>

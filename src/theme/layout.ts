@@ -58,5 +58,6 @@ export const shadows = {
   avatar: '0px 4px 14px rgba(20,26,70,0.08)',
   tabBar: '0px 12px 30px rgba(20,26,70,0.14)',
   selectionBar: '0px 16px 34px rgba(20,26,70,0.3)',
+  tip: '0px 6px 16px rgba(217,40,110,0.08)',
   bottomSheet: '0px -12px 40px rgba(20,26,70,0.2)',
 } as const;

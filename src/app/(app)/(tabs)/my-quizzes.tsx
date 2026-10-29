@@ -24,6 +24,7 @@ import { Banner } from '@/components/Banner';
 import { EmptyState } from '@/components/EmptyState';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { Tip } from '@/components/Tip';
 import { useAboveTabBarOffset, useTabBarSpace } from '@/components/TabBar';
 import {
   confirmDeleteQuizzes,
@@ -196,6 +197,8 @@ export default function MyQuizzesScreen() {
   );
 
   const canSelect = state.status === 'ready' && state.rows.length > 0;
+  const hasPublished =
+    state.status === 'ready' && state.rows.some((row) => row.status === 'published');
 
   function handleDeleteSelected() {
     const ids = [...selectedIds];
@@ -230,6 +233,14 @@ export default function MyQuizzesScreen() {
           </Pressable>
         )}
       </View>
+
+      {hasPublished && !isSelectMode && (
+        <Tip
+          id="my-quizzes"
+          text="Touchez un devoir publié pour voir les réponses de vos élèves."
+          style={styles.tip}
+        />
+      )}
 
       {deleteFailed && (
         <View style={styles.selectHint}>
@@ -622,6 +633,9 @@ const styles = StyleSheet.create({
   headerButtonText: {
     ...type.labelStrong,
     color: colors.actionText,
+  },
+  tip: {
+    marginBottom: spacing.sm,
   },
   selectHint: {
     marginBottom: spacing.xs,

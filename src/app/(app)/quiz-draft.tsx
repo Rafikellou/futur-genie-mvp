@@ -12,6 +12,7 @@ import { QuizRecapPills } from '@/components/Pill';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { StepLabel } from '@/components/StepIndicator';
+import { Tip } from '@/components/Tip';
 import { StickyFooter, useStickyFooterSpace } from '@/components/StickyFooter';
 import { TextField } from '@/components/TextField';
 import { supabase } from '@shared/supabase/client';
@@ -186,6 +187,11 @@ export default function QuizDraftScreen() {
           <BackButton onPress={() => router.back()} />
           <StepLabel step={3} suffix="Relecture" />
         </View>
+
+        <Tip
+          id="quiz-review"
+          text="Vos élèves ne voient rien tant que vous n’avez pas publié. Touchez une question pour la modifier."
+        />
 
         <GlassCard style={styles.summary}>
           <TextField

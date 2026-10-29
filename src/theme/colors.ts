@@ -64,6 +64,9 @@ export const colors = {
   onDarkFill: 'rgba(255,255,255,0.1)',
   onDarkBorder: 'rgba(255,255,255,0.22)',
   dangerOnDark: '#FFB4AE',
+  // « Astuce » card (first-visit tips): warmer and lighter than the info banner.
+  tipBorder: '#FFE1CC',
+  tipLabel: '#9A4A12',
 
   success: { background: '#E5F5EC', border: '#2E9E5B', text: '#1C6B40' },
   danger: { background: '#FDECEC', text: '#A3251F', solid: '#C2362F' },

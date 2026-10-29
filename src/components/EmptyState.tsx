@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { colors, fonts, gradients, radii, spacing, type } from '@/theme';
 
@@ -11,14 +11,19 @@ type Props = {
   icon?: ComponentProps<typeof Ionicons>['name'];
   title: string;
   body?: string;
-  action?: { label: string; onPress: () => void; primary?: boolean };
+  action?: Action;
+  // Shown under `action` (always secondary style), e.g. « Tester comme un
+  // élève » under « Partager le lien » on an empty results screen.
+  secondaryAction?: Omit<Action, 'primary'>;
 };
+
+type Action = { label: string; onPress: () => void; primary?: boolean };
 
 // The one centered layout for every loading / empty / error state
 // (docs/design Etats.dc.html): illustration, short sentence, and an action
 // when there is one. 'info' uses the brand tint (nothing is wrong, e.g. an
 // empty list); 'problem' the warm warning tint (not found, network error).
-export function EmptyState({ variant, icon, title, body, action }: Props) {
+export function EmptyState({ variant, icon, title, body, action, secondaryAction }: Props) {
   return (
     <View style={styles.card} accessibilityRole={variant === 'problem' ? 'alert' : undefined}>
       {variant === 'loading' ? (
@@ -38,23 +43,36 @@ export function EmptyState({ variant, icon, title, body, action }: Props) {
       <Text style={styles.title}>{title}</Text>
       {body ? <Text style={styles.body}>{body}</Text> : null}
 
-      {action ? (
-        <Pressable
-          onPress={action.onPress}
-          accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.action,
-            !action.primary && styles.actionSecondary,
-            pressed && styles.pressed,
-          ]}
-        >
-          {action.primary && <LinearGradient {...gradients.primaryButton} style={styles.actionFill} />}
-          <Text style={[styles.actionText, action.primary && styles.actionTextPrimary]}>
-            {action.label}
-          </Text>
-        </Pressable>
+      {action && secondaryAction ? (
+        // Two actions stack at full width, like the mockup's ReponsesVide.
+        <View style={styles.actionStack}>
+          <ActionButton action={action} style={styles.actionWide} />
+          <ActionButton action={secondaryAction} style={styles.actionWide} />
+        </View>
+      ) : action ? (
+        <ActionButton action={action} />
       ) : null}
     </View>
+  );
+}
+
+function ActionButton({ action, style }: { action: Action; style?: ViewStyle }) {
+  return (
+    <Pressable
+      onPress={action.onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.action,
+        !action.primary && styles.actionSecondary,
+        style,
+        pressed && styles.pressed,
+      ]}
+    >
+      {action.primary && <LinearGradient {...gradients.primaryButton} style={styles.actionFill} />}
+      <Text style={[styles.actionText, action.primary && styles.actionTextPrimary]}>
+        {action.label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -106,6 +124,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     borderRadius: radii.input,
     justifyContent: 'center',
+  },
+  actionStack: {
+    alignSelf: 'stretch',
+    gap: 10,
+    marginTop: spacing.xs,
+  },
+  actionWide: {
+    marginTop: 0,
+    alignItems: 'center',
   },
   actionSecondary: {
     backgroundColor: colors.surface,

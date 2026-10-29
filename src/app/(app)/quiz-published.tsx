@@ -13,7 +13,7 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { buildPublicQuizUrl } from '@/features/quiz-publishing/publicQuizUrl';
-import { copyText, shareText } from '@/features/quiz-sharing/shareOrCopy';
+import { copyText, openPublicQuiz, shareText } from '@/features/quiz-sharing/shareOrCopy';
 import { colors, gradients, radii, shadows, sizes, spacing, type } from '@/theme';
 
 // The teacher's view of a published quiz: confirmation that it is live, the
@@ -119,10 +119,25 @@ export default function QuizPublishedScreen() {
           )}
         </View>
 
+        <View style={styles.testBlock}>
+          <Pressable
+            onPress={() => openPublicQuiz(url)}
+            accessibilityRole="link"
+            style={({ pressed }) => [styles.testLink, pressed && styles.pressed]}
+          >
+            <Ionicons name="play-outline" size={18} color={colors.actionText} />
+            <Text style={styles.testLinkText}>Tester comme un élève</Text>
+          </Pressable>
+          <Text style={styles.testHint}>Votre réponse de test apparaîtra dans les résultats.</Text>
+        </View>
+
         {quizId && (
           <Pressable
             onPress={() =>
-              router.push({ pathname: '/quiz-results', params: { quizId, title: title || '' } })
+              router.push({
+                pathname: '/quiz-results',
+                params: { quizId, title: title || '', slug },
+              })
             }
             accessibilityRole="button"
             style={({ pressed }) => pressed && styles.pressed}
@@ -256,6 +271,25 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   resultsMeta: {
+    ...type.meta,
+    color: colors.textSecondary,
+  },
+  testBlock: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  testLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: sizes.compactButton,
+    paddingHorizontal: 18,
+  },
+  testLinkText: {
+    ...type.buttonSecondary,
+    color: colors.actionText,
+  },
+  testHint: {
     ...type.meta,
     color: colors.textSecondary,
   },

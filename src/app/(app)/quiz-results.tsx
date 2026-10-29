@@ -14,6 +14,8 @@ import {
   DELETE_ERROR_MESSAGE,
   deleteQuizzes,
 } from '@/features/quiz-publishing/deleteQuizzes';
+import { buildPublicQuizUrl } from '@/features/quiz-publishing/publicQuizUrl';
+import { openPublicQuiz, shareText } from '@/features/quiz-sharing/shareOrCopy';
 import { supabase } from '@shared/supabase/client';
 import { colors, fonts, gradients, radii, sizes, spacing, type } from '@/theme';
 
@@ -35,7 +37,12 @@ type LoadState =
   | { status: 'ready'; rows: SubmissionRow[] };
 
 export default function QuizResultsScreen() {
-  const { quizId, title } = useLocalSearchParams<{ quizId: string; title?: string }>();
+  const { quizId, title, slug } = useLocalSearchParams<{
+    quizId: string;
+    title?: string;
+    slug?: string;
+  }>();
+  const url = slug ? buildPublicQuizUrl(slug) : null;
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
@@ -160,8 +167,12 @@ export default function QuizResultsScreen() {
             <EmptyState
               variant="info"
               icon="people-outline"
-              title="Aucune réponse pour l’instant"
-              body="Les élèves apparaîtront ici dès qu’ils auront fait le devoir."
+              title="Pas encore de réponse"
+              body="Les réponses de vos élèves apparaîtront ici dès qu’ils auront fait le devoir."
+              action={url ? { label: 'Partager le lien', onPress: () => shareText(url), primary: true } : undefined}
+              secondaryAction={
+                url ? { label: 'Tester comme un élève', onPress: () => openPublicQuiz(url) } : undefined
+              }
             />
           )}
 

@@ -1,4 +1,4 @@
-import { Platform, Share } from 'react-native';
+import { Linking, Platform, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 // Single place wiring the two ways a teacher gets a quiz link (or a batch of
@@ -15,6 +15,18 @@ export async function shareText(message: string): Promise<boolean> {
 
   try {
     await Share.share({ message });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// « Tester comme un élève »: opens the public student page in the browser
+// (a new tab on web), so the teacher sees exactly what students get. A test
+// answer is a real submission and shows in the results (README §7.4).
+export async function openPublicQuiz(url: string): Promise<boolean> {
+  try {
+    await Linking.openURL(url);
     return true;
   } catch {
     return false;

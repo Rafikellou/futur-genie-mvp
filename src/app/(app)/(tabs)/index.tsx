@@ -107,6 +107,7 @@ export default function HomeScreen() {
   const { profile, session } = useAuth();
   const greetingName = profile?.displayName?.trim() || 'enseignant·e';
   const initials = initialsOf(profile?.firstName, profile?.lastName);
+  const schoolName = profile?.schoolName?.trim();
   const classLabel = GRADES.find((g) => g.value === profile?.classGrade)?.label;
   const home = useHomeData(session?.user.id);
   const tabBarSpace = useTabBarSpace();
@@ -118,7 +119,28 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Logo size={40} />
+          {/* The teacher's school, not the product name, heads the screen so
+              the app reads as "their school's app"; Futur Génie stays as a
+              byline. Falls back to the plain logo if the name is missing. */}
+          {schoolName ? (
+            <View style={styles.brand}>
+              <Logo size={40} showWordmark={false} />
+              <View style={styles.brandText}>
+                <Text
+                  style={styles.schoolName}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                  accessibilityRole="header"
+                >
+                  {schoolName}
+                </Text>
+                <Text style={styles.byline}>avec Futur Génie</Text>
+              </View>
+            </View>
+          ) : (
+            <Logo size={40} />
+          )}
           <Pressable
             onPress={() => router.navigate('/profile')}
             accessibilityRole="button"
@@ -255,6 +277,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  brand: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandText: {
+    flex: 1,
+  },
+  schoolName: {
+    ...type.schoolName,
+    color: colors.text,
+  },
+  byline: {
+    ...type.meta,
+    color: colors.textSecondary,
   },
   avatar: {
     width: sizes.touchTarget,

@@ -8,7 +8,7 @@ import { OptionChips } from '@/features/exercise-creation/components/OptionChips
 import { colors, spacing, type } from '@/theme';
 import { GRADES, Grade } from '@shared/domain/grade';
 import { TEACHER_TITLES, TeacherTitle } from '@shared/domain/title';
-import type { TeacherDetails } from '@shared/domain/profile';
+import { SCHOOL_NAME_MAX_LENGTH, type TeacherDetails } from '@shared/domain/profile';
 
 type Props = {
   initial?: Partial<TeacherDetails>;
@@ -122,7 +122,8 @@ export function TeacherDetailsForm({
           setSchoolName(value);
           markDirty();
         }}
-        placeholder="École élémentaire Jean Jaurès"
+        placeholder="École Jean Jaurès"
+        maxLength={SCHOOL_NAME_MAX_LENGTH}
       />
 
       <TextField

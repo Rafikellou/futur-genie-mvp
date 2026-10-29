@@ -54,6 +54,12 @@ export function mapProfileRow(row: ProfileRow): Profile {
   };
 }
 
+// The school name replaces the Futur Génie wordmark in the Home header, which
+// has room for one line beside the logo and avatar on a 360 pt-wide phone.
+// UI-only cap: the DB CHECK stays at 120 so existing longer names remain
+// valid (the header shrinks/ellipsizes those).
+export const SCHOOL_NAME_MAX_LENGTH = 22;
+
 // What the onboarding screen collects. All fields required.
 export type TeacherDetails = {
   title: TeacherTitle;

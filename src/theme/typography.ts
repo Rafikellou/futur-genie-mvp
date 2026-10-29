@@ -27,6 +27,7 @@ export const type = {
   heroTitle: { fontFamily: fonts.heading, fontSize: 28, lineHeight: 31, letterSpacing: -0.56 },
   inputTitle: { fontFamily: fonts.heading, fontSize: 22 },
   wordmark: { fontFamily: fonts.heading, fontSize: 22, letterSpacing: -0.44 },
+  schoolName: { fontFamily: fonts.heading, fontSize: 20, lineHeight: 24, letterSpacing: -0.4 },
   stat: { fontFamily: fonts.heading, fontSize: 30, lineHeight: 32 },
   sectionTitle: { fontFamily: fonts.headingSemiBold, fontSize: 18 },
   button: { fontFamily: fonts.bodySemiBold, fontSize: 17 },

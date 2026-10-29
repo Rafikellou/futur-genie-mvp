@@ -3,7 +3,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Image, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ImageSourcePropType,
+} from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { GlassCard } from '@/components/GlassCard';
@@ -15,6 +26,11 @@ import { StepBar, StepLabel } from '@/components/StepIndicator';
 import { GenerationProgress } from '@/features/exercise-creation/components/GenerationProgress';
 import { compressLessonImage, LessonImage } from '@/features/exercise-creation/lessonImage';
 import { generateQuizFromLesson } from '@/features/exercise-creation/generateQuiz';
+import {
+  loadSampleLesson,
+  SAMPLE_LESSON_SUBJECT,
+  SAMPLE_LESSONS,
+} from '@/features/exercise-creation/sampleLessons';
 import { EXERCISE_TYPES, QuizType } from '@shared/domain/exercise';
 import { GRADES, Grade } from '@shared/domain/grade';
 import { SUBJECTS, Subject } from '@shared/domain/subject';
@@ -25,6 +41,7 @@ import {
 import { colors, gradients, radii, shadows, sizes, spacing, type } from '@/theme';
 
 type PhotoSource = 'camera' | 'library';
+type BusySource = PhotoSource | 'sample';
 
 // The backend returns a single final response (no live progress), so this
 // just cycles through the CLAUDE.md-suggested copy on a timer rather than
@@ -63,12 +80,25 @@ export default function CreatePhotoScreen() {
     questionCount: string;
   }>();
 
-  const gradeLabel = GRADES.find((g) => g.value === grade)?.label ?? grade;
-  const subjectLabel = SUBJECTS.find((s) => s.value === subject)?.label ?? subject;
-  const quizTypeLabel = EXERCISE_TYPES.find((t) => t.value === quizType)?.label ?? quizType;
-
   const [photo, setPhoto] = useState<LessonImage | null>(null);
-  const [busySource, setBusySource] = useState<PhotoSource | null>(null);
+  // The example lessons are all math: once one is picked, the devoir is
+  // created in Mathématiques whatever was chosen at step 1 (README §7.1).
+  const [isSample, setIsSample] = useState(false);
+  const effectiveSubject = isSample ? SAMPLE_LESSON_SUBJECT : subject;
+  const sampleLesson = SAMPLE_LESSONS[grade as Grade];
+
+  const gradeLabel = GRADES.find((g) => g.value === grade)?.label ?? grade;
+  const subjectLabel =
+    SUBJECTS.find((s) => s.value === effectiveSubject)?.label ?? effectiveSubject;
+  const quizTypeLabel = EXERCISE_TYPES.find((t) => t.value === quizType)?.label ?? quizType;
+  const recapLabels: [string, string, string, string] = [
+    gradeLabel,
+    subjectLabel,
+    quizTypeLabel,
+    `${questionCount} questions`,
+  ];
+
+  const [busySource, setBusySource] = useState<BusySource | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const generationStep = useGenerationStep(isGenerating);
 
@@ -103,16 +133,31 @@ export default function CreatePhotoScreen() {
         height: asset.height,
       });
       setPhoto(compressed);
+      setIsSample(false);
     } catch {
       // Covers manipulation failures and unexpected picker errors alike —
       // the teacher only needs to know the photo didn't work, not why.
-      Alert.alert(
-        'Photo indisponible',
-        "Nous n'avons pas pu utiliser cette photo. Réessayez avec une autre image."
-      );
+      showPhotoUnavailableAlert();
     } finally {
       setBusySource(null);
     }
+  }
+
+  async function handleSampleLesson() {
+    setBusySource('sample');
+    try {
+      setPhoto(await loadSampleLesson(grade as Grade));
+      setIsSample(true);
+    } catch {
+      showPhotoUnavailableAlert();
+    } finally {
+      setBusySource(null);
+    }
+  }
+
+  function clearPhoto() {
+    setPhoto(null);
+    setIsSample(false);
   }
 
   async function handleContinue() {
@@ -123,7 +168,7 @@ export default function CreatePhotoScreen() {
       const result = await generateQuizFromLesson({
         photo,
         grade: grade as Grade,
-        subject: subject as Subject,
+        subject: effectiveSubject as Subject,
         quizType: quizType as QuizType,
         questionCount: Number(questionCount),
       });
@@ -137,7 +182,7 @@ export default function CreatePhotoScreen() {
           // docs/design Fenetres.dc.html.
           canRetakePhoto
             ? [
-                { text: 'Reprendre la photo', onPress: () => setPhoto(null), isPreferred: true },
+                { text: 'Reprendre la photo', onPress: clearPhoto, isPreferred: true },
                 { text: 'Réessayer' },
               ]
             : [{ text: 'Réessayer' }]
@@ -183,7 +228,37 @@ export default function CreatePhotoScreen() {
           Photo de la leçon
         </Text>
 
-        {photo ? (
+        {photo && isSample ? (
+          <>
+            {/* docs/design PhotoApercuExemple.dc.html */}
+            <QuizRecapPills labels={recapLabels} />
+            <View style={styles.previewFrame}>
+              <Image
+                source={{ uri: photo.uri }}
+                style={[styles.preview, { aspectRatio: photo.width / photo.height }]}
+                resizeMode="contain"
+                accessibilityLabel={`Leçon d’exemple : ${sampleLesson?.title ?? ''}`}
+              />
+              <View style={styles.sampleBadge}>
+                <Ionicons name="book-outline" size={14} color={colors.textOnBrand} />
+                <Text style={styles.sampleBadgeText}>Leçon d’exemple</Text>
+              </View>
+            </View>
+            <SecondaryButton
+              label="Utiliser ma propre photo"
+              icon="camera-outline"
+              onPress={clearPhoto}
+              disabled={isBusy}
+              style={styles.compactButton}
+            />
+            <PrimaryButton
+              label="Créer le devoir"
+              icon="sparkles-outline"
+              onPress={handleContinue}
+              disabled={isBusy}
+            />
+          </>
+        ) : photo ? (
           <>
             <Text style={styles.subtitle}>
               {gradeLabel} · {subjectLabel} · {quizTypeLabel} · {questionCount} questions
@@ -225,9 +300,7 @@ export default function CreatePhotoScreen() {
           </>
         ) : (
           <>
-            <QuizRecapPills
-              labels={[gradeLabel, subjectLabel, quizTypeLabel, `${questionCount} questions`]}
-            />
+            <QuizRecapPills labels={recapLabels} />
             <FramingIllustration />
             <View style={styles.tips}>
               {PHOTO_TIPS.map((tip) => (
@@ -256,10 +329,92 @@ export default function CreatePhotoScreen() {
                 style={styles.libraryButton}
               />
             </View>
+            {sampleLesson && (
+              <>
+                <View
+                  style={styles.orRow}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>ou</Text>
+                  <View style={styles.orLine} />
+                </View>
+                <SampleLessonCard
+                  gradeLabel={gradeLabel}
+                  title={sampleLesson.title}
+                  image={sampleLesson.image}
+                  showSubjectNotice={subject !== SAMPLE_LESSON_SUBJECT}
+                  loading={busySource === 'sample'}
+                  disabled={isBusy}
+                  onPress={handleSampleLesson}
+                />
+              </>
+            )}
           </>
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+// « Essayer avec une leçon d'exemple » (docs/design PhotoChoixExemple.dc.html):
+// deliberately lighter than the two photo buttons above it.
+function SampleLessonCard({
+  gradeLabel,
+  title,
+  image,
+  showSubjectNotice,
+  loading,
+  disabled,
+  onPress,
+}: {
+  gradeLabel: string;
+  title: string;
+  image: ImageSourcePropType;
+  showSubjectNotice: boolean;
+  loading: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const subtitle = `Mathématiques · ${gradeLabel} — ${title}`;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={`Essayer avec une leçon d’exemple. ${subtitle}`}
+      accessibilityHint={showSubjectNotice ? 'Le devoir sera créé en Mathématiques.' : undefined}
+      accessibilityState={{ disabled, busy: loading }}
+      style={({ pressed }) => [
+        styles.sampleCard,
+        (pressed || (disabled && !loading)) && styles.pressed,
+      ]}
+    >
+      <Image source={image} style={styles.sampleThumb} resizeMode="cover" />
+      <View style={styles.sampleText}>
+        <Text style={styles.sampleTitle}>Essayer avec une leçon d’exemple</Text>
+        <Text style={styles.sampleSubtitle}>{subtitle}</Text>
+        {showSubjectNotice && (
+          <View style={styles.sampleNotice}>
+            <Ionicons name="information-circle-outline" size={13} color={colors.warning.text} />
+            <Text style={styles.sampleNoticeText}>Le devoir sera créé en Mathématiques</Text>
+          </View>
+        )}
+      </View>
+      {loading ? (
+        <ActivityIndicator color={colors.brandViolet} />
+      ) : (
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      )}
+    </Pressable>
+  );
+}
+
+function showPhotoUnavailableAlert() {
+  Alert.alert(
+    'Photo indisponible',
+    "Nous n'avons pas pu utiliser cette photo. Réessayez avec une autre image."
   );
 }
 
@@ -452,6 +607,90 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 10,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: spacing.xs,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  orText: {
+    ...type.metaStrong,
+    color: colors.textMuted,
+  },
+  sampleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceGlassSoft,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.borderStrong,
+  },
+  sampleThumb: {
+    width: 56,
+    height: 74,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    boxShadow: shadows.floatingBadge,
+  },
+  sampleText: {
+    flex: 1,
+    gap: 2,
+  },
+  sampleTitle: {
+    ...type.bodyStrong,
+    lineHeight: 19,
+    color: colors.text,
+  },
+  sampleSubtitle: {
+    ...type.meta,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
+  sampleNotice: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 3,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    borderRadius: spacing.sm,
+    backgroundColor: colors.warning.background,
+  },
+  sampleNoticeText: {
+    ...type.metaStrong,
+    fontSize: 12,
+    color: colors.warning.text,
+  },
+  sampleBadge: {
+    position: 'absolute',
+    left: 22,
+    top: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 30,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    backgroundColor: colors.text,
+    boxShadow: shadows.floatingBadge,
+  },
+  sampleBadgeText: {
+    ...type.metaStrong,
+    color: colors.textOnBrand,
   },
   compactButton: {
     flex: 1,

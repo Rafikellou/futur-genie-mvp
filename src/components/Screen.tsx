@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { Image, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Image, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors } from '@/theme';
+import { colors, sizes } from '@/theme';
 
 // Soft colored "halos" behind every screen (docs/design/README §3.3). A single
 // pre-rendered image (~55 KB) rather than blurred views: runtime blur would
@@ -56,5 +56,9 @@ const styles = StyleSheet.create({
   default: {
     flex: 1,
     backgroundColor: 'transparent',
+    // The halos stay full-bleed; only the content column is capped.
+    ...Platform.select({
+      web: { width: '100%', maxWidth: sizes.webContentMaxWidth, alignSelf: 'center' },
+    }),
   },
 });

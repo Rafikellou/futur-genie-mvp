@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Tabs } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, gradients, radii, shadows, sizes, spacing, type } from '@/theme';
@@ -128,6 +128,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceGlassBorder,
     boxShadow: shadows.tabBar,
+    // Match the centered content column of <Screen> on web (auto margins
+    // center an absolutely positioned box between its left/right offsets).
+    ...Platform.select({
+      web: {
+        maxWidth: sizes.webContentMaxWidth - 2 * sizes.tabBarMargin,
+        marginHorizontal: 'auto',
+      },
+    }),
   },
   tab: {
     width: TAB_HEIGHT,

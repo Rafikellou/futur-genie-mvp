@@ -34,6 +34,9 @@ export const sizes = {
   listRow: 60,
   tabBar: 68,
   tabBarMargin: 16,
+  // Web only: on a computer the app stays a centered phone-width column
+  // instead of stretching across the whole browser window.
+  webContentMaxWidth: 600,
 } as const;
 
 // `boxShadow` strings — supported by React Native's New Architecture on iOS,

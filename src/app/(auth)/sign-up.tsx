@@ -23,7 +23,6 @@ import { colors, fonts, gradients, radii, shadows, spacing, type } from '@/theme
 
 export default function SignUpScreen() {
   const { signUp } = useAuth();
-  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,7 +31,6 @@ export default function SignUpScreen() {
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   const canSubmit =
-    displayName.trim().length > 0 &&
     email.trim().length > 0 &&
     password.length >= 6 &&
     password === confirmPassword &&
@@ -43,11 +41,7 @@ export default function SignUpScreen() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const { requiresEmailConfirmation } = await signUp(
-        email.trim(),
-        password,
-        displayName.trim(),
-      );
+      const { requiresEmailConfirmation } = await signUp(email.trim(), password);
       if (requiresEmailConfirmation) {
         setNeedsEmailConfirmation(true);
       }
@@ -110,14 +104,6 @@ export default function SignUpScreen() {
           </View>
 
           <GlassCard style={styles.formCard}>
-            <TextField
-              label="Nom affiché"
-              value={displayName}
-              onChangeText={setDisplayName}
-              autoComplete="name"
-              textContentType="name"
-              placeholder="Mme Dupont"
-            />
             <TextField
               label="Adresse e-mail"
               value={email}

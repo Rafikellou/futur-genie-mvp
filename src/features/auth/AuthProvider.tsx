@@ -27,11 +27,7 @@ type AuthContextValue = {
   profile: Profile | null | undefined;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (
-    email: string,
-    password: string,
-    displayName: string,
-  ) => Promise<{ requiresEmailConfirmation: boolean }>;
+  signUp: (email: string, password: string) => Promise<{ requiresEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   updateTeacherDetails: (details: TeacherDetails) => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -89,12 +85,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (error) throw new Error(getAuthErrorMessage(error));
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name: displayName } },
-    });
+  // No name is asked at sign-up: the mandatory onboarding screen collects
+  // title + first/last name and derives display_name from them.
+  const signUp = useCallback(async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw new Error(getAuthErrorMessage(error));
     // If email confirmation is required, Supabase returns a user but no
     // session yet — the teacher stays on the sign-in flow until confirmed.

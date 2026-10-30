@@ -128,6 +128,10 @@ dashboard configuration, nothing to deploy:
 6. **Supabase > Authentication > Emails > Templates > Confirm signup**:
    subject `Confirmez votre adresse e-mail – Futur Génie`, body = contents of
    `templates/confirmation.html`.
+7. **Same page > Reset password**: subject
+   `Votre code pour changer de mot de passe – Futur Génie`, body = contents of
+   `templates/recovery.html`. It shows the code (`{{ .Token }}`), not a link —
+   the app's « Mot de passe oublié » screen asks for that code.
 
 Once the domain is verified, the feedback alert can also use it:
 `npx supabase secrets set FEEDBACK_ALERT_FROM="Futur Génie <alertes@futurgenie.fr>"`.

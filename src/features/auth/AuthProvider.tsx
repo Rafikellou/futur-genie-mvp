@@ -29,6 +29,8 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ requiresEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  resetPasswordWithCode: (email: string, code: string, newPassword: string) => Promise<void>;
   updateTeacherDetails: (details: TeacherDetails) => Promise<void>;
   deleteAccount: () => Promise<void>;
 };
@@ -100,6 +102,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (error) throw new Error(getAuthErrorMessage(error));
   }, []);
 
+  // Password reset uses the emailed code ({{ .Token }} in the "Reset
+  // password" template), not a link: a code works the same on iOS, Android
+  // and web, even when the teacher reads the email on another device.
+  // Supabase answers success for unknown addresses too, so this never
+  // reveals whether an account exists.
+  const requestPasswordReset = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw new Error(getAuthErrorMessage(error));
+  }, []);
+
+  const resetPasswordWithCode = useCallback(
+    async (email: string, code: string, newPassword: string) => {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: 'recovery',
+      });
+      if (verifyError) throw new Error(getAuthErrorMessage(verifyError));
+      // The teacher is signed in from here on, and the root layout already
+      // moves to the (app) group, so the calling screen may be gone by the
+      // time this resolves. The screen validates the new password beforehand
+      // so this step is not expected to fail; `same_password` is harmless
+      // (the typed password is already the account's password).
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError && updateError.code !== 'same_password') {
+        throw new Error(getAuthErrorMessage(updateError));
+      }
+    },
+    [],
+  );
+
   const updateTeacherDetails = useCallback(
     async (details: TeacherDetails) => {
       if (!session) return;
@@ -146,6 +179,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signIn,
         signUp,
         signOut,
+        requestPasswordReset,
+        resetPasswordWithCode,
         updateTeacherDetails,
         deleteAccount,
       }}

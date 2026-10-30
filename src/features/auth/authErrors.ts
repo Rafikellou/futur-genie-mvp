@@ -16,6 +16,8 @@ export function getAuthErrorMessage(error: unknown): string {
       case 'over_email_send_rate_limit':
       case 'over_request_rate_limit':
         return 'Trop de tentatives. Patientez quelques instants avant de réessayer.';
+      case 'otp_expired':
+        return 'Ce code est incorrect ou a expiré. Vérifiez-le ou demandez un nouveau code.';
       case 'validation_failed':
         return 'Adresse e-mail invalide.';
       default:

@@ -75,6 +75,11 @@ export default function SignInScreen() {
               textContentType="password"
               placeholder="••••••••"
             />
+            <Link href={{ pathname: '/forgot-password', params: { email: email.trim() } }} asChild>
+              <Pressable accessibilityRole="link" hitSlop={8} style={styles.forgotLink}>
+                <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
+              </Pressable>
+            </Link>
 
             {error ? <Banner tone="error" messages={error} /> : null}
 
@@ -127,6 +132,15 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     borderRadius: 28,
     boxShadow: shadows.form,
+  },
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginTop: -spacing.sm,
+  },
+  forgotText: {
+    ...type.label,
+    fontFamily: fonts.bodySemiBold,
+    color: colors.link,
   },
   footerLink: {
     marginTop: spacing.xxl,

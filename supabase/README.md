@@ -100,3 +100,34 @@ default `from` address) can only deliver to the email address your Resend
 account itself is registered with — fine as long as `FEEDBACK_ALERT_EMAIL`
 is that same address. Verifying your own domain in Resend later removes that
 restriction.
+
+## Auth emails (sign-up confirmation, password reset)
+
+Supabase's built-in email sender is for development only (a couple of emails
+per hour, generic sender, often flagged as spam). In production, Auth emails go
+through Resend over SMTP — the same Resend account as the feedback alert, with
+its own API key so either can be revoked independently. All of this is
+dashboard configuration, nothing to deploy:
+
+1. **Resend > Domains**: add and verify `futurgenie.fr` (copy the DNS records
+   Resend shows into the domain's DNS zone). Resend puts its bounce/SPF records
+   on a `send.` subdomain, so the existing `contact@futurgenie.fr` mailbox is
+   not affected.
+2. **Resend > API Keys**: create a key named `supabase-auth-smtp`, permission
+   "Sending access", restricted to `futurgenie.fr`.
+3. **Supabase > Authentication > Emails > SMTP Settings**: enable custom SMTP.
+   - Sender email: `contact@futurgenie.fr` — a real mailbox, so a teacher who
+     replies reaches someone. Sender name: `Futur Génie`.
+   - Host `smtp.resend.com`, port `465`, username `resend`, password = the key
+     from step 2.
+4. **Supabase > Authentication > Rate Limits**: raise "emails sent per hour"
+   (drops to 30 once custom SMTP is on) to 100. Resend's free tier caps at
+   100 emails/day, shared with the feedback alert.
+5. **Supabase > Authentication > URL Configuration**: Site URL must be
+   `https://app.futurgenie.fr` — confirmation links redirect there.
+6. **Supabase > Authentication > Emails > Templates > Confirm signup**:
+   subject `Confirmez votre adresse e-mail – Futur Génie`, body = contents of
+   `templates/confirmation.html`.
+
+Once the domain is verified, the feedback alert can also use it:
+`npx supabase secrets set FEEDBACK_ALERT_FROM="Futur Génie <alertes@futurgenie.fr>"`.

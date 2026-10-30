@@ -5,7 +5,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Pressable,
@@ -21,6 +20,7 @@ import { GlassCard } from '@/components/GlassCard';
 import { QuizRecapPills } from '@/components/Pill';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { showAlert } from '@/components/showAlert';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { StepBar, StepLabel } from '@/components/StepIndicator';
 import { GenerationProgress } from '@/features/exercise-creation/components/GenerationProgress';
@@ -175,7 +175,7 @@ export default function CreatePhotoScreen() {
 
       if (!result.ok) {
         const canRetakePhoto = RETAKE_PHOTO_ERRORS.has(result.code);
-        Alert.alert(
+        showAlert(
           'Devoir non créé',
           GENERATION_ERROR_MESSAGES[result.code],
           // Button order and default (bold, isPreferred) follow
@@ -412,7 +412,7 @@ function SampleLessonCard({
 }
 
 function showPhotoUnavailableAlert() {
-  Alert.alert(
+  showAlert(
     'Photo indisponible',
     "Nous n'avons pas pu utiliser cette photo. Réessayez avec une autre image."
   );
@@ -448,13 +448,13 @@ function showPermissionDeniedAlert(source: PhotoSource, canAskAgain: boolean) {
   const target = source === 'camera' ? "à l'appareil photo" : 'à vos photos';
 
   if (canAskAgain) {
-    Alert.alert('Autorisation nécessaire', `Autorisez l'accès ${target} pour continuer.`);
+    showAlert('Autorisation nécessaire', `Autorisez l'accès ${target} pour continuer.`);
     return;
   }
 
   // On iOS/Android, once denied the OS won't show its permission dialog
   // again — the only way forward is the app's settings page.
-  Alert.alert(
+  showAlert(
     'Autorisation nécessaire',
     `L'accès ${target} est désactivé pour Futur Génie. Autorisez-le dans les réglages de votre appareil pour continuer.`,
     [

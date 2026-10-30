@@ -15,7 +15,9 @@ import { createClient } from '@supabase/supabase-js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+  // x-client-info is sent by supabase-js on every call; without it the
+  // browser's preflight fails and the web app can't reach this function.
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 

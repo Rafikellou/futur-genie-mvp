@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,6 +16,7 @@ import { Banner } from '@/components/Banner';
 import { GlassCard } from '@/components/GlassCard';
 import { HeroCard } from '@/components/HeroCard';
 import { Screen } from '@/components/Screen';
+import { showAlert } from '@/components/showAlert';
 import { useTabBarSpace } from '@/components/TabBar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { TeacherDetailsForm } from '@/features/auth/TeacherDetailsForm';
@@ -50,7 +50,7 @@ export default function ProfileScreen() {
   }
 
   function handleDeleteAccount() {
-    Alert.alert(
+    showAlert(
       'Supprimer votre compte ?',
       'Tous vos devoirs et les réponses de vos élèves seront définitivement supprimés. Cette action est irréversible.',
       [

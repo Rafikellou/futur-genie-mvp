@@ -5,6 +5,7 @@
 // response all resolve to a `GenerationErrorCode` (CLAUDE.md §24/§39).
 import * as FileSystem from 'expo-file-system/legacy';
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 import { supabase } from '@shared/supabase/client';
 import { QuizDataSchema, type QuizData } from '@shared/domain/quiz';
@@ -41,9 +42,7 @@ export async function generateQuizFromLesson(
   try {
     // The photo is compressed to JPEG on-device (Milestone 4) and never
     // written anywhere else — read here just long enough to send it.
-    const image = await FileSystem.readAsStringAsync(params.photo.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    const image = await readImageAsBase64(params.photo.uri);
 
     const { data, error } = await supabase.functions.invoke('generate-quiz', {
       body: {
@@ -75,6 +74,22 @@ export async function generateQuizFromLesson(
     // only needs a stable error code, not the underlying cause.
     return { ok: false, code: 'unknown_error' };
   }
+}
+
+// expo-file-system has no web implementation; in the browser the
+// manipulated photo is a blob:/data: URL, which fetch() reads directly.
+async function readImageAsBase64(uri: string): Promise<string> {
+  if (Platform.OS !== 'web') {
+    return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  }
+  const blob = await (await fetch(uri)).blob();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+  return dataUrl.slice(dataUrl.indexOf(',') + 1);
 }
 
 async function resolveErrorCode(error: unknown): Promise<GenerationErrorCode> {

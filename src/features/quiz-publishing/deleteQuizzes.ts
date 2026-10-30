@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { showAlert } from '@/components/showAlert';
 
 import { supabase } from '@shared/supabase/client';
 
@@ -18,7 +18,7 @@ export async function deleteQuizzes(ids: string[]): Promise<boolean> {
 
 // Native confirmation (docs/design Fenetres.dc.html, 9th alert).
 export function confirmDeleteQuizzes(count: number, onConfirm: () => void) {
-  Alert.alert(
+  showAlert(
     count > 1 ? `Supprimer ces ${count} devoirs ?` : 'Supprimer ce devoir ?',
     count > 1
       ? 'Les liens ne fonctionneront plus et les réponses des élèves seront effacées.'

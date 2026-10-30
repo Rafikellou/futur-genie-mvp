@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,7 @@ import {
 import { GlassCard } from '@/components/GlassCard';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { showAlert } from '@/components/showAlert';
 import { SecondaryButton } from '@/components/SecondaryButton';
 import { useTabBarSpace } from '@/components/TabBar';
 import { TextField } from '@/components/TextField';
@@ -49,7 +49,7 @@ export default function SuggestionsScreen() {
     } catch {
       // The teacher's text is preserved (not cleared) so "Réessayer" costs
       // nothing to type again — same principle as CLAUDE.md §39.
-      Alert.alert(
+      showAlert(
         'Message non envoyé',
         "Nous n'avons pas pu envoyer votre message. Vérifiez votre connexion et réessayez.",
         [{ text: 'Réessayer' }]

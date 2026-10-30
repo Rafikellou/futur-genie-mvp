@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { Banner } from '@/components/Banner';
@@ -11,6 +11,7 @@ import { GlassCard } from '@/components/GlassCard';
 import { QuizRecapPills } from '@/components/Pill';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
+import { showAlert } from '@/components/showAlert';
 import { StepLabel } from '@/components/StepIndicator';
 import { Tip } from '@/components/Tip';
 import { StickyFooter, useStickyFooterSpace } from '@/components/StickyFooter';
@@ -90,7 +91,7 @@ export default function QuizDraftScreen() {
   }
 
   function promptAddQuestion() {
-    Alert.alert(
+    showAlert(
       'Ajouter une question',
       'Choisissez le type de question.',
       [
@@ -106,7 +107,7 @@ export default function QuizDraftScreen() {
   }
 
   function handleDeleteQuestion(questionId: string) {
-    Alert.alert('Supprimer cette question ?', 'Cette action est irréversible.', [
+    showAlert('Supprimer cette question ?', 'Cette action est irréversible.', [
       {
         text: 'Supprimer',
         style: 'destructive',
@@ -122,11 +123,11 @@ export default function QuizDraftScreen() {
   async function handlePublish() {
     const issues = findQuizIssues(currentQuiz);
     if (issues.length > 0) {
-      Alert.alert('Devoir incomplet', issues[0]);
+      showAlert('Devoir incomplet', issues[0]);
       return;
     }
     if (!QuizDataSchema.safeParse(currentQuiz).success) {
-      Alert.alert('Devoir incomplet', 'Vérifiez les questions et les réponses avant de continuer.');
+      showAlert('Devoir incomplet', 'Vérifiez les questions et les réponses avant de continuer.');
       return;
     }
     if (isPublishing) return;
